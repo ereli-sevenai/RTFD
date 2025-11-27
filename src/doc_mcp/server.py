@@ -200,6 +200,55 @@ async def fetch_pypi_metadata(package: str) -> Dict[str, Any]:
     }
 
 
+async def fetch_godocs_metadata(package: str) -> Dict[str, Any]:
+    """Scrape package metadata from godocs.io."""
+    # Handle full URLs or just package paths
+    if package.startswith("https://godocs.io/"):
+        package = package.replace("https://godocs.io/", "")
+    
+    # godocs.io seems to block standard browser User-Agents but allows curl.
+    # We'll use a curl-like User-Agent for this specific request.
+    url = f"https://godocs.io/{package}"
+    headers = {"User-Agent": "curl/7.68.0"}
+    async with await _http_client() as client:
+        resp = await client.get(url, headers=headers)
+        resp.raise_for_status()
+        # print(f"DEBUG: Response text start: {resp.text[:500]}")
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+    # Extract description/synopsis
+    description = ""
+    
+    # Try meta description first
+    meta_desc = soup.find("meta", attrs={"name": "description"})
+    if meta_desc:
+        description = meta_desc.get("content", "")
+
+    # If meta description is missing or generic, try parsing the body
+    # The structure is usually: <h2 id="pkg-overview">...</h2> <p>import ...</p> <p>Description...</p>
+    if not description or "godocs.io" in description:
+        overview_header = soup.find(["h2", "h3"], {"id": "pkg-overview"})
+        if overview_header:
+            # Look at next siblings
+            for sibling in overview_header.find_next_siblings():
+                if sibling.name == "h2" or sibling.name == "h3": # Stop at next section
+                    break
+                if sibling.name == "p":
+                    text = sibling.get_text(strip=True)
+                    # Skip the import statement
+                    if text.startswith("import \""):
+                        continue
+                    description = text
+                    break
+
+    return {
+        "name": package,
+        "summary": description,
+        "url": url,
+        "source_url": f"https://pkg.go.dev/{package}" # godocs often mirrors standard paths
+    }
+
+
 async def locate_library_docs(library: str, limit: int = 5) -> Dict[str, Any]:
     """
     Try to find documentation links for a given library using PyPI first,
@@ -213,6 +262,23 @@ async def locate_library_docs(library: str, limit: int = 5) -> Dict[str, Any]:
         result["pypi_error"] = f"PyPI returned {exc.response.status_code}"
     except httpx.HTTPError as exc:
         result["pypi_error"] = f"PyPI request failed: {exc}"
+
+    # Try GoDocs if it looks like a Go package (contains / or is a common stdlib name)
+    # We'll just try it for everything that isn't clearly just a python package name, 
+    # or maybe just always try it in parallel? 
+    # For now, let's try it if pypi fails OR if it looks like a go package.
+    # But the user might want to search for "http" which is both.
+    try:
+        result["godocs"] = await fetch_godocs_metadata(library)
+    except httpx.HTTPStatusError as exc:
+        # 404 is expected for non-Go packages
+        if exc.response.status_code != 404:
+            result["godocs_error"] = f"GoDocs returned {exc.response.status_code}"
+    except httpx.HTTPError as exc:
+        result["godocs_error"] = f"GoDocs request failed: {exc}"
+    except Exception:
+        pass # parsing error or otherwise
+
 
     try:
         result["github_repos"] = await search_github_repos(f"{library} python", limit=limit)
@@ -280,6 +346,12 @@ async def github_code_search(query: str, repo: Optional[str] = None, limit: int 
 @mcp.tool(description="Retrieve PyPI package metadata including documentation URLs when available. Returns data in TOON format.")
 async def pypi_metadata(package: str) -> str:
     result = await fetch_pypi_metadata(package)
+    return _to_toon(result)
+
+
+@mcp.tool(description="Retrieve Go package documentation metadata from godocs.io. Returns data in TOON format.")
+async def godocs_metadata(package: str) -> str:
+    result = await fetch_godocs_metadata(package)
     return _to_toon(result)
 
 
