@@ -1,6 +1,13 @@
 # doc-mcp
 
-Model Context Protocol server that acts as a gateway for coding agents to pull library documentation and related context. It queries Google (HTML scrape), GitHub search APIs, PyPI metadata, and GoDocs to surface relevant docs in one place.
+Model Context Protocol (MCP) server that acts as a gateway for coding agents to pull library documentation and related context. It queries Google (HTML scrape), GitHub search APIs, PyPI metadata, and GoDocs to surface relevant docs in one place.
+
+**Features:**
+- **Pluggable Architecture**: Easily add new documentation providers by creating a single provider module
+- **Multi-Source Search**: Aggregates results from PyPI, GoDocs, GitHub repositories, GitHub code, and Google
+- **Token Efficient**: All responses serialized in TOON format (~30% smaller than JSON)
+- **Error Resilient**: Provider failures are isolated; one API failure doesn't crash the server
+- **Auto-Discovery**: New providers are automatically discovered and registered
 
 ## Quickstart
 
@@ -18,14 +25,128 @@ Model Context Protocol server that acts as a gateway for coding agents to pull l
    doc-mcp-server
    ```
 
-The server exposes MCP tools (all responses returned in TOON format for token efficiency):
-- `search_library_docs(library, limit=5)`: Combined lookup using PyPI, GoDocs, GitHub, and Google.
-- `google_search(query, limit=5)`: General Google card scrape (no API key).
-- `github_repo_search(query, limit=5, language="Python")`
-- `github_code_search(query, repo=None, limit=5)`
-- `pypi_metadata(package)`
-- `godocs_metadata(package)`: Retrieve Go package documentation metadata from godocs.io.
-- `google_search(query, limit=5, use_api=False)` – set `use_api=True` plus `GOOGLE_API_KEY` and `GOOGLE_CSE_ID` env vars to use Google Custom Search; otherwise it scrapes HTML.
+## Available Tools
+
+All tool responses are returned in **TOON format** for token efficiency.
+
+**Aggregator:**
+- `search_library_docs(library, limit=5)`: Combined lookup across all providers (PyPI, GoDocs, GitHub, Google)
+
+**Individual Providers:**
+- `pypi_metadata(package)`: Fetch package metadata from PyPI
+- `godocs_metadata(package)`: Retrieve Go package documentation from godocs.io
+- `github_repo_search(query, limit=5, language="Python")`: Search GitHub repositories
+- `github_code_search(query, repo=None, limit=5)`: Search code on GitHub
+- `google_search(query, limit=5, use_api=False)`: Search Google (HTML scrape by default; set `use_api=True` with `GOOGLE_API_KEY` and `GOOGLE_CSE_ID` env vars for Custom Search API)
+
+## Integration with Claude Code
+
+Once the server is running, you can connect it to [Claude Code](https://claude.com/claude-code) (or any other MCP client).
+
+### Claude Code Configuration
+
+Add the following to your `~/.claude/settings.json` (or create it if it doesn't exist):
+
+```json
+{
+  "mcpServers": {
+    "doc-mcp": {
+      "command": "doc-mcp-server",
+      "type": "stdio"
+    }
+  }
+}
+```
+
+Or, if you want to run it with a specific environment (e.g., with a GitHub token):
+
+```json
+{
+  "mcpServers": {
+    "doc-mcp": {
+      "command": "bash",
+      "args": ["-c", "export GITHUB_TOKEN=your_token_here && doc-mcp-server"],
+      "type": "stdio"
+    }
+  }
+}
+```
+
+Once configured, Claude Code will have access to all 6 tools and can search library documentation across multiple sources in a single request.
+
+## Integration with Other MCP Clients
+
+This MCP server works with any MCP-compatible client, including:
+- **Cursor**: Add to your `.cursor/settings.json` with similar configuration
+- **Cline**: Configure via environment or MCP server settings
+- **Custom Agents**: Any application using the [MCP SDK](https://github.com/modelcontextprotocol/python-sdk)
+
+The server communicates over **stdio** (standard input/output), making it compatible with any client that supports the MCP protocol.
+
+## Pluggable Architecture
+
+The doc-mcp server uses a pluggable provider architecture, making it easy to add new documentation sources without modifying the core server code.
+
+### How It Works
+
+- **Providers** are modular plugins in `src/doc_mcp/providers/`
+- Each provider implements the `BaseProvider` interface
+- New providers are **automatically discovered** and registered
+- Providers can expose **multiple tools** (e.g., GitHub has both repo and code search)
+- Each provider has **isolated error handling** (one failure doesn't crash others)
+
+### Adding a Custom Provider
+
+To add a new documentation provider:
+
+1. **Create a provider file** in `src/doc_mcp/providers/my_provider.py`:
+
+```python
+from src.doc_mcp.providers.base import BaseProvider, ProviderMetadata, ProviderResult
+
+class MyProvider(BaseProvider):
+    def get_metadata(self) -> ProviderMetadata:
+        return ProviderMetadata(
+            name="my_provider",
+            description="Search documentation from my custom source",
+            expose_as_tool=True,
+            tool_names=["my_search"],
+            supports_library_search=True
+        )
+
+    async def search_library(self, library: str, limit: int = 5) -> ProviderResult:
+        # Your implementation here
+        data = await self._fetch_from_my_api(library, limit)
+        return ProviderResult(success=True, data=data, provider_name="my_provider")
+
+    def get_tools(self):
+        return {
+            "my_search": self._my_search
+        }
+
+    async def _my_search(self, query: str, limit: int = 5) -> str:
+        from src.doc_mcp.utils import to_toon
+        result = await self._fetch_from_my_api(query, limit)
+        return to_toon(result)
+
+    async def _fetch_from_my_api(self, query: str, limit: int):
+        async with await self._http_client_factory() as client:
+            # Make HTTP request and parse response
+            pass
+```
+
+2. **Restart the server** – the new provider is automatically discovered and registered!
+
+3. **No core code changes needed** – your provider is immediately available as a tool.
+
+### Built-in Providers
+
+- **PyPI** (`pypi.py`): Fetches package metadata from PyPI
+- **GoDocs** (`godocs.py`): Retrieves Go package documentation
+- **GitHub** (`github.py`): Searches GitHub repositories and code
+- **Google** (`google.py`): General web search with HTML scraping
+
+Each provider can be extended or replaced without modifying server.py or other providers.
 
 ## Notes
 
