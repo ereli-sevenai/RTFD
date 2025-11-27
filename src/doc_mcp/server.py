@@ -1,301 +1,111 @@
 """
-MCP gateway server that surfaces library documentation by querying Google, GitHub, and PyPI.
+MCP gateway server that surfaces library documentation by querying Google, GitHub, PyPI, and GoDocs.
 
-The server exposes tools meant for coding agents to quickly pull reference material without
-having to juggle multiple sources. Network-heavy calls are written defensively so the agent
-gets a useful error payload instead of a crash when a provider is unavailable.
+The server uses a pluggable provider architecture with auto-discovery. Providers are loaded
+from the providers/ directory and can optionally expose individual MCP tools or participate
+in the aggregated search_library_docs tool.
 """
 
 from __future__ import annotations
 
-import asyncio
-import os
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-import httpx
-from bs4 import BeautifulSoup
 from mcp.server.fastmcp import FastMCP
-from toon import encode
 
-USER_AGENT = (
-    "doc-mcp/0.1 (+https://github.com/) "
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/118.0 Safari/537.36"
-)
-DEFAULT_TIMEOUT = 15.0
+from .providers import discover_providers
+from .providers.base import BaseProvider
+from .utils import create_http_client, to_toon
 
+# Initialize FastMCP server
 mcp = FastMCP("doc-mcp-gateway")
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
+# Provider instances (initialized on first use)
+_provider_instances: Dict[str, BaseProvider] = {}
 
 
-@dataclass
-class SearchResult:
-    title: str
-    url: str
-    snippet: str
-
-    def as_dict(self) -> Dict[str, str]:
-        return {"title": self.title, "url": self.url, "snippet": self.snippet}
-
-
-async def _http_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        timeout=DEFAULT_TIMEOUT,
-        follow_redirects=True,
-        headers={"User-Agent": USER_AGENT, "Accept": "*/*"},
-    )
-
-
-def _to_toon(data: Any) -> str:
-    """Convert data to TOON format for token efficiency."""
-    return encode(data)
-
-
-async def search_google(query: str, limit: int = 5) -> List[SearchResult]:
-    """Scrape Google search result cards. Lightweight and dependency-free."""
-    async with await _http_client() as client:
-        resp = await client.get("https://www.google.com/search", params={"q": query})
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-    results: List[SearchResult] = []
-    for block in soup.select("div.g"):
-        anchor = block.find("a")
-        if not anchor or not anchor.get("href"):
-            continue
-        title = anchor.get_text(" ", strip=True)
-        snippet = block.get_text(" ", strip=True)
-        results.append(SearchResult(title=title, url=anchor["href"], snippet=snippet))
-        if len(results) >= limit:
-            break
-
-    return results
-
-
-async def search_google_custom(query: str, limit: int = 5) -> List[SearchResult]:
-    """Use Google Custom Search JSON API when API key + CSE ID are provided."""
-    if not GOOGLE_API_KEY or not GOOGLE_CSE_ID:
-        raise RuntimeError("Google API key or CSE ID missing")
-
-    params = {
-        "key": GOOGLE_API_KEY,
-        "cx": GOOGLE_CSE_ID,
-        "q": query,
-        "num": str(min(limit, 10)),
-    }
-    async with await _http_client() as client:
-        resp = await client.get("https://www.googleapis.com/customsearch/v1", params=params)
-        resp.raise_for_status()
-        payload = resp.json()
-
-    hits: List[SearchResult] = []
-    for item in payload.get("items", []):
-        hits.append(
-            SearchResult(
-                title=item.get("title", ""),
-                url=item.get("link", ""),
-                snippet=item.get("snippet", ""),
-            )
-        )
-        if len(hits) >= limit:
-            break
-    return hits
-
-
-async def search_github_repos(
-    query: str, limit: int = 5, language: Optional[str] = "Python"
-) -> List[Dict[str, Any]]:
-    """Query GitHub's repository search API."""
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-    token = os.getenv("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"token {token}"
-
-    params = {"q": query, "per_page": str(limit)}
-    if language:
-        params["q"] = f"{query} language:{language}"
-
-    async with await _http_client() as client:
-        resp = await client.get("https://api.github.com/search/repositories", params=params, headers=headers)
-        resp.raise_for_status()
-        payload = resp.json()
-
-    repos: List[Dict[str, Any]] = []
-    for item in payload.get("items", []):
-        repos.append(
-            {
-                "name": item.get("full_name"),
-                "description": item.get("description") or "",
-                "stars": item.get("stargazers_count", 0),
-                "url": item.get("html_url"),
-                "default_branch": item.get("default_branch"),
-            }
-        )
-        if len(repos) >= limit:
-            break
-    return repos
-
-
-async def search_github_code(query: str, repo: Optional[str] = None, limit: int = 5) -> List[Dict[str, Any]]:
-    """Search code on GitHub; optionally scoping to a repository."""
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-    token = os.getenv("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"token {token}"
-
-    search_query = query
-    if repo:
-        search_query = f"{query} repo:{repo}"
-
-    params = {"q": search_query, "per_page": str(limit)}
-    async with await _http_client() as client:
-        resp = await client.get("https://api.github.com/search/code", params=params, headers=headers)
-        resp.raise_for_status()
-        payload = resp.json()
-
-    code_hits: List[Dict[str, Any]] = []
-    for item in payload.get("items", []):
-        code_hits.append(
-            {
-                "name": item.get("name"),
-                "path": item.get("path"),
-                "repository": item.get("repository", {}).get("full_name"),
-                "url": item.get("html_url"),
-            }
-        )
-        if len(code_hits) >= limit:
-            break
-    return code_hits
-
-
-async def fetch_pypi_metadata(package: str) -> Dict[str, Any]:
-    """Pull package metadata from the PyPI JSON API."""
-    url = f"https://pypi.org/pypi/{package}/json"
-    async with await _http_client() as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        payload = resp.json()
-
-    info = payload.get("info", {})
-    return {
-        "name": info.get("name"),
-        "summary": info.get("summary") or "",
-        "version": info.get("version"),
-        "home_page": info.get("home_page"),
-        "docs_url": info.get("project_urls", {}).get("Documentation")
-        if isinstance(info.get("project_urls"), dict)
-        else None,
-        "project_urls": info.get("project_urls") or {},
-    }
-
-
-async def fetch_godocs_metadata(package: str) -> Dict[str, Any]:
-    """Scrape package metadata from godocs.io."""
-    # Handle full URLs or just package paths
-    if package.startswith("https://godocs.io/"):
-        package = package.replace("https://godocs.io/", "")
-    
-    # godocs.io seems to block standard browser User-Agents but allows curl.
-    # We'll use a curl-like User-Agent for this specific request.
-    url = f"https://godocs.io/{package}"
-    headers = {"User-Agent": "curl/7.68.0"}
-    async with await _http_client() as client:
-        resp = await client.get(url, headers=headers)
-        resp.raise_for_status()
-        # print(f"DEBUG: Response text start: {resp.text[:500]}")
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-    # Extract description/synopsis
-    description = ""
-    
-    # Try meta description first
-    meta_desc = soup.find("meta", attrs={"name": "description"})
-    if meta_desc:
-        description = meta_desc.get("content", "")
-
-    # If meta description is missing or generic, try parsing the body
-    # The structure is usually: <h2 id="pkg-overview">...</h2> <p>import ...</p> <p>Description...</p>
-    if not description or "godocs.io" in description:
-        overview_header = soup.find(["h2", "h3"], {"id": "pkg-overview"})
-        if overview_header:
-            # Look at next siblings
-            for sibling in overview_header.find_next_siblings():
-                if sibling.name == "h2" or sibling.name == "h3": # Stop at next section
-                    break
-                if sibling.name == "p":
-                    text = sibling.get_text(strip=True)
-                    # Skip the import statement
-                    if text.startswith("import \""):
-                        continue
-                    description = text
-                    break
-
-    return {
-        "name": package,
-        "summary": description,
-        "url": url,
-        "source_url": f"https://pkg.go.dev/{package}" # godocs often mirrors standard paths
-    }
-
-
-async def locate_library_docs(library: str, limit: int = 5) -> Dict[str, Any]:
+def _get_provider_instances() -> Dict[str, BaseProvider]:
     """
-    Try to find documentation links for a given library using PyPI first,
-    then GitHub repo search, and finally Google.
+    Get or create provider instances.
+
+    Lazy initialization of providers with shared HTTP client factory.
+    """
+    if _provider_instances:
+        return _provider_instances
+
+    provider_classes = discover_providers()
+
+    for name, provider_class in provider_classes.items():
+        try:
+            instance = provider_class(create_http_client)
+            _provider_instances[name] = instance
+        except Exception as e:
+            # Log but don't crash - defensive initialization
+            print(f"Warning: Failed to initialize provider {name}: {e}")
+
+    return _provider_instances
+
+
+def _register_provider_tools() -> None:
+    """
+    Discover and register all provider tools with FastMCP.
+
+    This function is called once at module initialization to dynamically
+    register all tools from providers that opt-in via expose_as_tool=True.
+    """
+    providers = _get_provider_instances()
+
+    for provider_name, provider in providers.items():
+        metadata = provider.get_metadata()
+
+        # Skip providers that don't want individual tool exposure
+        if not metadata.expose_as_tool:
+            continue
+
+        # Get tool functions from provider
+        tools = provider.get_tools()
+
+        # Register each tool with FastMCP
+        for tool_name, tool_fn in tools.items():
+            # Extract description from docstring
+            description = tool_fn.__doc__ or f"{provider_name} tool"
+
+            # Wrap the tool function to ensure it's properly decorated
+            decorated_tool = mcp.tool(description=description)(tool_fn)
+
+
+async def _locate_library_docs(library: str, limit: int = 5) -> Dict[str, Any]:
+    """
+    Try to find documentation links for a given library using all available providers.
+
+    This is the aggregator function that combines results from PyPI, GoDocs, GitHub, and Google.
     """
     result: Dict[str, Any] = {"library": library}
+    providers = _get_provider_instances()
 
-    try:
-        result["pypi"] = await fetch_pypi_metadata(library)
-    except httpx.HTTPStatusError as exc:
-        result["pypi_error"] = f"PyPI returned {exc.response.status_code}"
-    except httpx.HTTPError as exc:
-        result["pypi_error"] = f"PyPI request failed: {exc}"
+    # Query each provider that supports library search
+    for provider_name, provider in providers.items():
+        metadata = provider.get_metadata()
 
-    # Try GoDocs if it looks like a Go package (contains / or is a common stdlib name)
-    # We'll just try it for everything that isn't clearly just a python package name, 
-    # or maybe just always try it in parallel? 
-    # For now, let's try it if pypi fails OR if it looks like a go package.
-    # But the user might want to search for "http" which is both.
-    try:
-        result["godocs"] = await fetch_godocs_metadata(library)
-    except httpx.HTTPStatusError as exc:
-        # 404 is expected for non-Go packages
-        if exc.response.status_code != 404:
-            result["godocs_error"] = f"GoDocs returned {exc.response.status_code}"
-    except httpx.HTTPError as exc:
-        result["godocs_error"] = f"GoDocs request failed: {exc}"
-    except Exception:
-        pass # parsing error or otherwise
+        if not metadata.supports_library_search:
+            continue
 
+        provider_result = await provider.search_library(library, limit=limit)
 
-    try:
-        result["github_repos"] = await search_github_repos(f"{library} python", limit=limit)
-    except httpx.HTTPStatusError as exc:
-        detail = exc.response.text[:200] if exc.response is not None else ""
-        result["github_error"] = f"GitHub returned {exc.response.status_code} {detail}"
-    except httpx.HTTPError as exc:
-        result["github_error"] = f"GitHub request failed: {exc}"
-
-    try:
-        result["web"] = [hit.as_dict() for hit in await search_google(f"{library} python documentation", limit=limit)]
-    except httpx.HTTPStatusError as exc:
-        result["google_error"] = f"Google returned {exc.response.status_code}"
-    except httpx.HTTPError as exc:
-        result["google_error"] = f"Google request failed: {exc}"
-    except Exception as exc:  # pragma: no cover - defensive
-        result["google_error"] = f"Google parsing failed: {exc}"
+        if provider_result.success:
+            # Success: add data to result
+            # Map provider name to appropriate result key
+            key_mapping = {
+                "pypi": "pypi",
+                "godocs": "godocs",
+                "github": "github_repos",
+                "google": "web",
+            }
+            result_key = key_mapping.get(provider_name, provider_name)
+            result[result_key] = provider_result.data
+        elif provider_result.error:
+            # Error: add error message (skip if error is None - silent fail)
+            error_key = f"{provider_name}_error"
+            result[error_key] = provider_result.error
 
     return result
 
@@ -304,55 +114,13 @@ async def locate_library_docs(library: str, limit: int = 5) -> Dict[str, Any]:
     description="Find docs for a library using PyPI metadata, GitHub repos, and Google search combined. Returns data in TOON format."
 )
 async def search_library_docs(library: str, limit: int = 5) -> str:
-    result = await locate_library_docs(library, limit=limit)
-    return _to_toon(result)
+    """Aggregated library documentation search across all providers."""
+    result = await _locate_library_docs(library, limit=limit)
+    return to_toon(result)
 
 
-@mcp.tool(
-    description="Run a Google search and return result cards. Supports API (GOOGLE_API_KEY/GOOGLE_CSE_ID) or HTML scrape fallback. Returns data in TOON format."
-)
-async def google_search(query: str, limit: int = 5, use_api: bool = False) -> str:
-    hits: List[SearchResult] = []
-    api_error: Optional[str] = None
-
-    if use_api:
-        try:
-            hits = await search_google_custom(query, limit=limit)
-        except Exception as exc:  # pragma: no cover - defensive and fall back
-            api_error = str(exc)
-
-    if not hits:
-        hits = await search_google(query, limit=limit)
-        if api_error:
-            # Surface API failure in the first result snippet for observability.
-            hits.append(SearchResult(title="google-api-error", url="", snippet=api_error))
-
-    result = [hit.as_dict() for hit in hits]
-    return _to_toon(result)
-
-
-@mcp.tool(description="Search GitHub repositories relevant to a library or topic. Returns data in TOON format.")
-async def github_repo_search(query: str, limit: int = 5, language: Optional[str] = "Python") -> str:
-    result = await search_github_repos(query, limit=limit, language=language)
-    return _to_toon(result)
-
-
-@mcp.tool(description="Search GitHub code (optionally scoped to a repository). Returns data in TOON format.")
-async def github_code_search(query: str, repo: Optional[str] = None, limit: int = 5) -> str:
-    result = await search_github_code(query, repo=repo, limit=limit)
-    return _to_toon(result)
-
-
-@mcp.tool(description="Retrieve PyPI package metadata including documentation URLs when available. Returns data in TOON format.")
-async def pypi_metadata(package: str) -> str:
-    result = await fetch_pypi_metadata(package)
-    return _to_toon(result)
-
-
-@mcp.tool(description="Retrieve Go package documentation metadata from godocs.io. Returns data in TOON format.")
-async def godocs_metadata(package: str) -> str:
-    result = await fetch_godocs_metadata(package)
-    return _to_toon(result)
+# Auto-register all provider tools
+_register_provider_tools()
 
 
 def run() -> None:
