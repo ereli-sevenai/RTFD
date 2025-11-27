@@ -26,6 +26,9 @@ DEFAULT_TIMEOUT = 15.0
 
 mcp = FastMCP("doc-mcp-gateway")
 
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
+
 
 @dataclass
 class SearchResult:
@@ -64,6 +67,36 @@ async def search_google(query: str, limit: int = 5) -> List[SearchResult]:
             break
 
     return results
+
+
+async def search_google_custom(query: str, limit: int = 5) -> List[SearchResult]:
+    """Use Google Custom Search JSON API when API key + CSE ID are provided."""
+    if not GOOGLE_API_KEY or not GOOGLE_CSE_ID:
+        raise RuntimeError("Google API key or CSE ID missing")
+
+    params = {
+        "key": GOOGLE_API_KEY,
+        "cx": GOOGLE_CSE_ID,
+        "q": query,
+        "num": str(min(limit, 10)),
+    }
+    async with await _http_client() as client:
+        resp = await client.get("https://www.googleapis.com/customsearch/v1", params=params)
+        resp.raise_for_status()
+        payload = resp.json()
+
+    hits: List[SearchResult] = []
+    for item in payload.get("items", []):
+        hits.append(
+            SearchResult(
+                title=item.get("title", ""),
+                url=item.get("link", ""),
+                snippet=item.get("snippet", ""),
+            )
+        )
+        if len(hits) >= limit:
+            break
+    return hits
 
 
 async def search_github_repos(
@@ -203,10 +236,24 @@ async def search_library_docs(library: str, limit: int = 5) -> Dict[str, Any]:
 
 
 @mcp.tool(
-    description="Run a general Google search and return result cards (scraped HTML, no API key required)."
+    description="Run a Google search and return result cards. Supports API (GOOGLE_API_KEY/GOOGLE_CSE_ID) or HTML scrape fallback."
 )
-async def google_search(query: str, limit: int = 5) -> List[Dict[str, str]]:
-    hits = await search_google(query, limit=limit)
+async def google_search(query: str, limit: int = 5, use_api: bool = False) -> List[Dict[str, str]]:
+    hits: List[SearchResult] = []
+    api_error: Optional[str] = None
+
+    if use_api:
+        try:
+            hits = await search_google_custom(query, limit=limit)
+        except Exception as exc:  # pragma: no cover - defensive and fall back
+            api_error = str(exc)
+
+    if not hits:
+        hits = await search_google(query, limit=limit)
+        if api_error:
+            # Surface API failure in the first result snippet for observability.
+            hits.append(SearchResult(title="google-api-error", url="", snippet=api_error))
+
     return [hit.as_dict() for hit in hits]
 
 

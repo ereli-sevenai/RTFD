@@ -15,8 +15,8 @@ This directory describes how the codebase is organized and how the MCP server be
 - `search_library_docs(library, limit=5)`  
   Calls, in order: `fetch_pypi_metadata`, `search_github_repos`, and `search_google`. Each provider failure is captured as an `*_error` field instead of raising.
 
-- `google_search(query, limit=5)`  
-  Scrapes `https://www.google.com/search` result blocks (`div.g`). Returns `[{title, url, snippet}]`. Best effort; may yield fewer results if Google throttles.
+- `google_search(query, limit=5, use_api=False)`  
+  If `use_api=True` and `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` are set, uses Google Custom Search JSON API; otherwise scrapes `https://www.google.com/search` result blocks (`div.g`). Returns `[{title, url, snippet}]`. Best effort; may yield fewer results if throttled.
 
 - `github_repo_search(query, limit=5, language="Python")`  
   Uses GitHub Search API for repos. Adds `language:` qualifier when provided. Reads `GITHUB_TOKEN` for higher rate limits; otherwise relies on anonymous quota. Returns name/description/stars/url/default_branch.

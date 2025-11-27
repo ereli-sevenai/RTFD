@@ -24,6 +24,7 @@ The server exposes MCP tools:
 - `github_repo_search(query, limit=5, language="Python")`
 - `github_code_search(query, repo=None, limit=5)`
 - `pypi_metadata(package)`
+- `google_search(query, limit=5, use_api=False)` – set `use_api=True` plus `GOOGLE_API_KEY` and `GOOGLE_CSE_ID` env vars to use Google Custom Search; otherwise it scrapes HTML.
 
 ## Notes
 
