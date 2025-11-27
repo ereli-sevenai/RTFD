@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.doc_mcp.server import _get_provider_instances, _locate_library_docs, search_library_docs
+from src.RTFD.server import _get_provider_instances, _locate_library_docs, search_library_docs
 
 
 @pytest.fixture

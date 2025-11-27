@@ -1,4 +1,4 @@
-# doc-mcp
+# RTFD (Read The Fucking Docs)
 
 Model Context Protocol (MCP) server that acts as a gateway for coding agents to pull library documentation and related context. It queries Google (HTML scrape), GitHub search APIs, PyPI metadata, and GoDocs to surface relevant docs in one place.
 
@@ -22,7 +22,7 @@ Model Context Protocol (MCP) server that acts as a gateway for coding agents to 
    ```
 3. Run the server:
    ```bash
-   doc-mcp-server
+   rtfd
    ```
 
 ## Available Tools
@@ -50,8 +50,8 @@ Add the following to your `~/.claude/settings.json` (or create it if it doesn't 
 ```json
 {
   "mcpServers": {
-    "doc-mcp": {
-      "command": "doc-mcp-server",
+    "rtfd": {
+      "command": "rtfd",
       "type": "stdio"
     }
   }
@@ -63,9 +63,9 @@ Or, if you want to run it with a specific environment (e.g., with a GitHub token
 ```json
 {
   "mcpServers": {
-    "doc-mcp": {
+    "rtfd": {
       "command": "bash",
-      "args": ["-c", "export GITHUB_TOKEN=your_token_here && doc-mcp-server"],
+      "args": ["-c", "export GITHUB_TOKEN=your_token_here && rtfd"],
       "type": "stdio"
     }
   }
@@ -85,11 +85,11 @@ The server communicates over **stdio** (standard input/output), making it compat
 
 ## Pluggable Architecture
 
-The doc-mcp server uses a pluggable provider architecture, making it easy to add new documentation sources without modifying the core server code.
+The RTFD server uses a pluggable provider architecture, making it easy to add new documentation sources without modifying the core server code.
 
 ### How It Works
 
-- **Providers** are modular plugins in `src/doc_mcp/providers/`
+- **Providers** are modular plugins in `src/RTFD/providers/`
 - Each provider implements the `BaseProvider` interface
 - New providers are **automatically discovered** and registered
 - Providers can expose **multiple tools** (e.g., GitHub has both repo and code search)
@@ -99,10 +99,10 @@ The doc-mcp server uses a pluggable provider architecture, making it easy to add
 
 To add a new documentation provider:
 
-1. **Create a provider file** in `src/doc_mcp/providers/my_provider.py`:
+1. **Create a provider file** in `src/RTFD/providers/my_provider.py`:
 
 ```python
-from src.doc_mcp.providers.base import BaseProvider, ProviderMetadata, ProviderResult
+from src.RTFD.providers.base import BaseProvider, ProviderMetadata, ProviderResult
 
 class MyProvider(BaseProvider):
     def get_metadata(self) -> ProviderMetadata:
@@ -125,7 +125,7 @@ class MyProvider(BaseProvider):
         }
 
     async def _my_search(self, query: str, limit: int = 5) -> str:
-        from src.doc_mcp.utils import to_toon
+        from src.RTFD.utils import to_toon
         result = await self._fetch_from_my_api(query, limit)
         return to_toon(result)
 

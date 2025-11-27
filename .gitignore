@@ -31,7 +31,7 @@ dist/
 .env.*
 
 # Skip auxiliary bundle
-doc-mcp-claude/
+rtfd-claude/
 
 # Claude Code configuration
 CLAUDE.md

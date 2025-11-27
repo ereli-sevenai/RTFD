@@ -2,8 +2,8 @@
 
 import pytest
 
-from src.doc_mcp.providers.github import GitHubProvider
-from src.doc_mcp.utils import create_http_client
+from src.RTFD.providers.github import GitHubProvider
+from src.RTFD.utils import create_http_client
 
 
 @pytest.fixture

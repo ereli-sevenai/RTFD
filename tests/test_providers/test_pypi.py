@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from src.doc_mcp.providers.pypi import PyPIProvider
-from src.doc_mcp.utils import create_http_client
+from src.RTFD.providers.pypi import PyPIProvider
+from src.RTFD.utils import create_http_client
 
 
 @pytest.fixture

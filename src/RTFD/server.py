@@ -17,7 +17,7 @@ from .providers.base import BaseProvider
 from .utils import create_http_client, to_toon
 
 # Initialize FastMCP server
-mcp = FastMCP("doc-mcp-gateway")
+mcp = FastMCP("rtfd-gateway")
 
 # Provider instances (initialized on first use)
 _provider_instances: Dict[str, BaseProvider] = {}

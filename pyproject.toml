@@ -1,5 +1,5 @@
 [project]
-name = "doc-mcp"
+name = "rtfd"
 version = "0.1.0"
 description = "MCP gateway server for library documentation search (Google, GitHub, PyPI)."
 authors = [{ name = "Doc MCP" }]
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-doc-mcp-server = "doc_mcp.server:run"
+rtfd = "RTFD.server:run"
 
 [build-system]
 requires = ["setuptools>=61"]

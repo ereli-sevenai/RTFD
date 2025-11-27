@@ -4,7 +4,7 @@ This directory describes how the codebase is organized and how the MCP server be
 
 ## Architecture
 
-- Entry point: `src/doc_mcp/server.py` contains all tool implementations and the console entry `run()`. The console script `doc-mcp-server` (declared in `pyproject.toml`) invokes this.
+- Entry point: `src/RTFD/server.py` contains all tool implementations and the console entry `run()`. The console script `rtfd` (declared in `pyproject.toml`) invokes this.
 - Framework: Uses `mcp.server.fastmcp.FastMCP` to declare tools and run the server over stdio.
 - HTTP layer: `httpx.AsyncClient` with a shared `_http_client()` factory that applies timeouts, redirects, and user-agent headers.
 - HTML parsing: `BeautifulSoup` for Google result-card scraping.
@@ -67,4 +67,4 @@ github_repos[2]{name,stars,url}:
 
 - Dependencies are declared in `pyproject.toml` (Python 3.10+).
 - The server runs over stdio; no sockets are opened.
-- If you change environment-sensitive settings (e.g., `GITHUB_TOKEN`), restart the `doc-mcp-server` process to pick them up.
+- If you change environment-sensitive settings (e.g., `GITHUB_TOKEN`), restart the `rtfd` process to pick them up.

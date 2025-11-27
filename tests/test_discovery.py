@@ -1,7 +1,7 @@
 """Tests for provider auto-discovery mechanism."""
 
-from src.doc_mcp.providers import discover_providers, get_provider_metadata_all
-from src.doc_mcp.providers.base import BaseProvider, ProviderMetadata
+from src.RTFD.providers import discover_providers, get_provider_metadata_all
+from src.RTFD.providers.base import BaseProvider, ProviderMetadata
 
 
 def test_discover_providers_finds_all():
