@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 from bs4 import BeautifulSoup
 from mcp.server.fastmcp import FastMCP
+from toon import encode
 
 USER_AGENT = (
     "doc-mcp/0.1 (+https://github.com/) "
@@ -46,6 +47,11 @@ async def _http_client() -> httpx.AsyncClient:
         follow_redirects=True,
         headers={"User-Agent": USER_AGENT, "Accept": "*/*"},
     )
+
+
+def _to_toon(data: Any) -> str:
+    """Convert data to TOON format for token efficiency."""
+    return encode(data)
 
 
 async def search_google(query: str, limit: int = 5) -> List[SearchResult]:
@@ -229,16 +235,17 @@ async def locate_library_docs(library: str, limit: int = 5) -> Dict[str, Any]:
 
 
 @mcp.tool(
-    description="Find docs for a library using PyPI metadata, GitHub repos, and Google search combined."
+    description="Find docs for a library using PyPI metadata, GitHub repos, and Google search combined. Returns data in TOON format."
 )
-async def search_library_docs(library: str, limit: int = 5) -> Dict[str, Any]:
-    return await locate_library_docs(library, limit=limit)
+async def search_library_docs(library: str, limit: int = 5) -> str:
+    result = await locate_library_docs(library, limit=limit)
+    return _to_toon(result)
 
 
 @mcp.tool(
-    description="Run a Google search and return result cards. Supports API (GOOGLE_API_KEY/GOOGLE_CSE_ID) or HTML scrape fallback."
+    description="Run a Google search and return result cards. Supports API (GOOGLE_API_KEY/GOOGLE_CSE_ID) or HTML scrape fallback. Returns data in TOON format."
 )
-async def google_search(query: str, limit: int = 5, use_api: bool = False) -> List[Dict[str, str]]:
+async def google_search(query: str, limit: int = 5, use_api: bool = False) -> str:
     hits: List[SearchResult] = []
     api_error: Optional[str] = None
 
@@ -254,22 +261,26 @@ async def google_search(query: str, limit: int = 5, use_api: bool = False) -> Li
             # Surface API failure in the first result snippet for observability.
             hits.append(SearchResult(title="google-api-error", url="", snippet=api_error))
 
-    return [hit.as_dict() for hit in hits]
+    result = [hit.as_dict() for hit in hits]
+    return _to_toon(result)
 
 
-@mcp.tool(description="Search GitHub repositories relevant to a library or topic.")
-async def github_repo_search(query: str, limit: int = 5, language: Optional[str] = "Python") -> List[Dict[str, Any]]:
-    return await search_github_repos(query, limit=limit, language=language)
+@mcp.tool(description="Search GitHub repositories relevant to a library or topic. Returns data in TOON format.")
+async def github_repo_search(query: str, limit: int = 5, language: Optional[str] = "Python") -> str:
+    result = await search_github_repos(query, limit=limit, language=language)
+    return _to_toon(result)
 
 
-@mcp.tool(description="Search GitHub code (optionally scoped to a repository).")
-async def github_code_search(query: str, repo: Optional[str] = None, limit: int = 5) -> List[Dict[str, Any]]:
-    return await search_github_code(query, repo=repo, limit=limit)
+@mcp.tool(description="Search GitHub code (optionally scoped to a repository). Returns data in TOON format.")
+async def github_code_search(query: str, repo: Optional[str] = None, limit: int = 5) -> str:
+    result = await search_github_code(query, repo=repo, limit=limit)
+    return _to_toon(result)
 
 
-@mcp.tool(description="Retrieve PyPI package metadata including documentation URLs when available.")
-async def pypi_metadata(package: str) -> Dict[str, Any]:
-    return await fetch_pypi_metadata(package)
+@mcp.tool(description="Retrieve PyPI package metadata including documentation URLs when available. Returns data in TOON format.")
+async def pypi_metadata(package: str) -> str:
+    result = await fetch_pypi_metadata(package)
+    return _to_toon(result)
 
 
 def run() -> None:
