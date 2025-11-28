@@ -3,6 +3,9 @@
 Model Context Protocol (MCP) server that acts as a gateway for coding agents to pull library documentation and related context. It queries PyPI, npm, crates.io, GoDocs, Zig documentation, and GitHub APIs to surface relevant docs in one place.
 
 **Features:**
+- **Documentation Content Fetching**: Retrieve actual documentation content (README + key sections) instead of just URLs from PyPI, npm, and GitHub
+- **Smart Section Extraction**: Automatically prioritizes and extracts relevant documentation sections (installation, quickstart, API reference, etc.)
+- **Format Conversion**: Automatically converts reStructuredText and HTML to Markdown for consistent formatting
 - **Pluggable Architecture**: Easily add new documentation providers by creating a single provider module
 - **Multi-Source Search**: Aggregates results from PyPI, npm, crates.io, GoDocs, Zig docs, GitHub repositories, and GitHub code
 - **Token Efficient**: Responses can be serialized in TOON format (~30% smaller than JSON) by setting `USE_TOON=true`
@@ -39,7 +42,12 @@ All tool responses are returned in **JSON format** by default. This can be chang
 **Aggregator:**
 - `search_library_docs(library, limit=5)`: Combined lookup across all providers (PyPI, npm, crates.io, GoDocs, Zig, GitHub)
 
-**Individual Providers:**
+**Documentation Content Fetching:**
+- `fetch_pypi_docs(package, max_bytes=20480)`: Fetch Python package documentation from PyPI (includes README/description with smart section prioritization)
+- `fetch_npm_docs(package, max_bytes=20480)`: Fetch npm package documentation (README with section prioritization)
+- `fetch_github_readme(repo, max_bytes=20480)`: Fetch README from GitHub repository (format: "owner/repo")
+
+**Metadata Providers:**
 - `pypi_metadata(package)`: Fetch Python package metadata from PyPI
 - `npm_metadata(package)`: Fetch JavaScript package metadata from npm
 - `crates_metadata(crate)`: Get Rust crate metadata from crates.io
@@ -151,12 +159,12 @@ class MyProvider(BaseProvider):
 
 ### Built-in Providers
 
-- **PyPI** (`pypi.py`): Fetches Python package metadata from PyPI
-- **npm** (`npm.py`): Fetches JavaScript package metadata from npm registry
+- **PyPI** (`pypi.py`): Fetches Python package metadata and documentation content from PyPI (auto-converts reStructuredText to Markdown)
+- **npm** (`npm.py`): Fetches JavaScript package metadata and documentation content from npm registry
+- **GitHub** (`github.py`): Searches repositories and code; fetches README content from repositories
 - **Crates.io** (`crates.py`): Searches and retrieves Rust crate metadata from crates.io (respects 1 req/sec rate limit)
 - **GoDocs** (`godocs.py`): Retrieves Go package documentation from godocs.io
 - **Zig** (`zig.py`): Searches Zig programming language documentation
-- **GitHub** (`github.py`): Searches GitHub repositories and code
 
 Each provider can be extended or replaced without modifying server.py or other providers.
 

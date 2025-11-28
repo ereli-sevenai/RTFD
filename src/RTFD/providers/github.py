@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import base64
 import os
 from typing import Any, Callable, Dict, List, Optional
 
 import httpx
 
 from ..utils import USER_AGENT, serialize_response
+from ..content_utils import convert_relative_urls
 from .base import BaseProvider, ProviderMetadata, ProviderResult
 
 
@@ -17,9 +19,9 @@ class GitHubProvider(BaseProvider):
     def get_metadata(self) -> ProviderMetadata:
         return ProviderMetadata(
             name="github",
-            description="GitHub repository and code search",
+            description="GitHub repository and code search, README fetching",
             expose_as_tool=True,
-            tool_names=["github_repo_search", "github_code_search"],
+            tool_names=["github_repo_search", "github_code_search", "fetch_github_readme"],
             supports_library_search=True,
             required_env_vars=[],
             optional_env_vars=["GITHUB_TOKEN"],
@@ -119,24 +121,133 @@ class GitHubProvider(BaseProvider):
             headers["Authorization"] = f"token {token}"
         return headers
 
+    async def _fetch_github_readme(
+        self, owner: str, repo: str, max_bytes: int = 20480
+    ) -> Dict[str, Any]:
+        """
+        Fetch README from GitHub repository.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            max_bytes: Maximum content size
+
+        Returns:
+            Dict with content, size, source info
+        """
+        try:
+            headers = self._get_headers()
+            url = f"https://api.github.com/repos/{owner}/{repo}/readme"
+
+            async with await self._http_client() as client:
+                resp = await client.get(url, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+
+            # Decode base64 content
+            content = base64.b64decode(data["content"]).decode("utf-8")
+
+            # Convert relative URLs to absolute
+            # Use the blob URL for the specific branch/path
+            readme_name = data.get("name", "README.md")
+            readme_path = data.get("path", "")
+            default_branch = "main"  # Could be fetched from repo metadata if needed
+
+            base_url = f"https://github.com/{owner}/{repo}/blob/{default_branch}"
+            if readme_path and "/" in readme_path:
+                # If README is in a subdirectory
+                dir_path = "/".join(readme_path.split("/")[:-1])
+                base_url = f"{base_url}/{dir_path}"
+
+            content = convert_relative_urls(content, base_url)
+
+            # Truncate if needed
+            if len(content.encode("utf-8")) > max_bytes:
+                # Simple truncation for now - could use smart_truncate
+                encoded = content.encode("utf-8")[:max_bytes]
+                # Handle potential multi-byte character splits
+                while len(encoded) > 0:
+                    try:
+                        content = encoded.decode("utf-8")
+                        break
+                    except UnicodeDecodeError:
+                        encoded = encoded[:-1]
+                truncated = True
+            else:
+                truncated = False
+
+            return {
+                "repository": f"{owner}/{repo}",
+                "content": content,
+                "size_bytes": len(content.encode("utf-8")),
+                "source": "github_readme",
+                "readme_path": readme_path,
+                "truncated": truncated,
+            }
+
+        except httpx.HTTPStatusError as exc:
+            return {
+                "repository": f"{owner}/{repo}",
+                "content": "",
+                "error": f"GitHub returned {exc.response.status_code}",
+                "size_bytes": 0,
+                "source": None,
+            }
+        except Exception as exc:
+            return {
+                "repository": f"{owner}/{repo}",
+                "content": "",
+                "error": f"Failed to fetch README: {str(exc)}",
+                "size_bytes": 0,
+                "source": None,
+            }
+
     def get_tools(self) -> Dict[str, Callable]:
         """Return MCP tool functions."""
 
         async def github_repo_search(
             query: str, limit: int = 5, language: Optional[str] = "Python"
         ) -> str:
-            """Search GitHub repositories relevant to a library or topic. Returns data in TOON format."""
+            """Search GitHub repositories relevant to a library or topic."""
             result = await self._search_repos(query, limit=limit, language=language)
             return serialize_response(result)
 
         async def github_code_search(
             query: str, repo: Optional[str] = None, limit: int = 5
         ) -> str:
-            """Search GitHub code (optionally scoped to a repository). Returns data in TOON format."""
+            """Search GitHub code (optionally scoped to a repository)."""
             result = await self._search_code(query, repo=repo, limit=limit)
+            return serialize_response(result)
+
+        async def fetch_github_readme(repo: str, max_bytes: int = 20480) -> str:
+            """
+            Fetch README and documentation from GitHub repository.
+
+            Args:
+                repo: Repository in format "owner/repo"
+                max_bytes: Maximum content size (default ~20KB)
+
+            Returns:
+                JSON with README content, size, and metadata
+            """
+            # Parse owner/repo format
+            parts = repo.split("/", 1)
+            if len(parts) != 2:
+                error_result = {
+                    "repository": repo,
+                    "content": "",
+                    "error": "Invalid repo format. Use 'owner/repo'",
+                    "size_bytes": 0,
+                    "source": None,
+                }
+                return serialize_response(error_result)
+
+            owner, repo_name = parts
+            result = await self._fetch_github_readme(owner, repo_name, max_bytes)
             return serialize_response(result)
 
         return {
             "github_repo_search": github_repo_search,
             "github_code_search": github_code_search,
+            "fetch_github_readme": fetch_github_readme,
         }
