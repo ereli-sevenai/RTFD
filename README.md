@@ -1,4 +1,4 @@
-# ![RTFD Logo](logo.png) RTFD (Read The F*****g Docs)
+# ![RTFD Logo](logo.png) RTFD (Read The F*****g Docs) MCP Server
 
 Model Context Protocol (MCP) server that acts as a gateway for coding agents to pull library documentation and related context. It queries Google (HTML scrape), GitHub search APIs, PyPI, npm, crates.io, GoDocs, and Zig documentation to surface relevant docs in one place.
 
