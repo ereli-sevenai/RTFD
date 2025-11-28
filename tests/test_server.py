@@ -66,15 +66,15 @@ async def test_locate_library_docs_error_handling():
 
 
 @pytest.mark.asyncio
-async def test_search_library_docs_returns_toon_string():
-    """Test that search_library_docs tool returns TOON-formatted string."""
+@pytest.mark.asyncio
+async def test_search_library_docs_returns_json_string():
+    """Test that search_library_docs tool returns JSON-formatted string by default."""
     result = await search_library_docs("requests", limit=2)
 
     assert isinstance(result, str)
-    # Check for TOON format indicators
-    assert "library:" in result
-    assert "requests" in result
-    assert ":" in result  # TOON uses colons for key-value pairs
+    # Check for JSON format indicators
+    assert '{"library": "requests"' in result
+    assert '"pypi":' in result
 
 
 @pytest.mark.asyncio

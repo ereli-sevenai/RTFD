@@ -5,7 +5,7 @@ Model Context Protocol (MCP) server that acts as a gateway for coding agents to 
 **Features:**
 - **Pluggable Architecture**: Easily add new documentation providers by creating a single provider module
 - **Multi-Source Search**: Aggregates results from PyPI, npm, crates.io, GoDocs, Zig docs, GitHub repositories, and GitHub code
-- **Token Efficient**: Responses serialized in TOON format (~30% smaller than JSON) by default (configurable)
+- **Token Efficient**: Responses can be serialized in TOON format (~30% smaller than JSON) by setting `USE_TOON=true`
 - **Error Resilient**: Provider failures are isolated; one API failure doesn't crash the server
 - **Auto-Discovery**: New providers are automatically discovered and registered
 
@@ -26,15 +26,15 @@ Model Context Protocol (MCP) server that acts as a gateway for coding agents to 
    ```
 
 4. Configure serialization (optional):
-   By default, the server uses TOON serialization. To use standard JSON, set `USE_TOON=false`:
+   By default, the server uses JSON serialization. To use TOON for token efficiency, set `USE_TOON=true`:
    ```bash
-   export USE_TOON=false
+   export USE_TOON=true
    rtfd
    ```
 
 ## Available Tools
 
-All tool responses are returned in **TOON format** by default for token efficiency. This can be changed to JSON by setting `USE_TOON=false`.
+All tool responses are returned in **JSON format** by default. This can be changed to TOON by setting `USE_TOON=true`.
 
 **Aggregator:**
 - `search_library_docs(library, limit=5)`: Combined lookup across all providers (PyPI, npm, crates.io, GoDocs, Zig, GitHub)
@@ -162,7 +162,7 @@ Each provider can be extended or replaced without modifying server.py or other p
 
 ## Notes
 
-- **TOON format:** Tool responses are serialized to TOON (Token-Oriented Object Notation) format by default, reducing response size by ~30% compared to JSON. TOON is human-readable and lossless. Set `USE_TOON=false` to use standard JSON.
+- **TOON format:** Tool responses can be serialized to TOON (Token-Oriented Object Notation) format, reducing response size by ~30% compared to JSON. TOON is human-readable and lossless. Set `USE_TOON=true` to enable TOON serialization.
 - **Rate Limiting:** crates.io provider respects the 1 request/second rate limit enforced by crates.io.
 - Network calls fail gracefully with error payloads instead of raising uncaught exceptions.
 - Dependencies: `mcp`, `httpx`, `beautifulsoup4`, and `toonify` (for TOON serialization). Adjust `pyproject.toml` if needed.
