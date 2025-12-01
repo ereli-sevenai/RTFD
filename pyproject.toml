@@ -21,7 +21,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development :: Tools",
 ]
 dependencies = [
     "mcp>=1.22.0",
