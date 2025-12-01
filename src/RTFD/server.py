@@ -111,7 +111,7 @@ async def _locate_library_docs(library: str, limit: int = 5) -> Dict[str, Any]:
 
 
 @mcp.tool(
-    description="Find docs for a library using PyPI metadata and GitHub repos combined. Returns data in JSON or TOON format with token statistics."
+    description="Find docs for a library using PyPI metadata and GitHub repos combined. Returns data in JSON format with token statistics."
 )
 async def search_library_docs(library: str, limit: int = 5) -> CallToolResult:
     """Aggregated library documentation search across all providers."""

@@ -38,7 +38,7 @@ class ZigProvider(BaseProvider):
         """Return MCP tool functions."""
 
         async def zig_docs(query: str) -> CallToolResult:
-            """Search Zig language documentation. Returns data in TOON format."""
+            """Search Zig language documentation. Returns data in JSON format."""
             result = await self._search_zig_docs(query)
             return serialize_response_with_meta(result)
 

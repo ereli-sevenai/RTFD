@@ -204,7 +204,7 @@ class GoDocsProvider(BaseProvider):
         """Return MCP tool functions."""
 
         async def godocs_metadata(package: str) -> CallToolResult:
-            """Retrieve Go package documentation metadata from godocs.io. Returns data in TOON format."""
+            """Retrieve Go package documentation metadata from godocs.io. Returns data in JSON format."""
             result = await self._fetch_metadata(package)
             return serialize_response_with_meta(result)
 

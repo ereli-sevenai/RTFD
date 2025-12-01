@@ -7,9 +7,8 @@ from typing import Any
 import httpx
 import json
 import os
-from toon import encode
 from mcp.types import CallToolResult, TextContent
-from .token_counter import calculate_token_stats
+from .token_counter import count_tokens
 
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -46,12 +45,8 @@ def serialize_response(data: Any) -> str:
     """
     Convert data to string format.
 
-    Uses JSON by default. Falls back to TOON if USE_TOON environment variable is set to 'true'.
+    Uses JSON.
     """
-    use_toon = os.getenv("USE_TOON", "false").lower() == "true"
-
-    if use_toon:
-        return encode(data)
     return json.dumps(data)
 
 
@@ -59,10 +54,8 @@ def serialize_response_with_meta(data: Any) -> CallToolResult:
     """
     Convert data to CallToolResult with optional token statistics in _meta.
 
-    When RTFD_TRACK_TOKENS=true, serializes to both JSON and TOON
-    to calculate comparative stats. When false (default), only serializes to active format.
-
-    Returns format specified by USE_TOON environment variable.
+    When RTFD_TRACK_TOKENS=true, calculates token stats.
+    When false (default), only serializes to JSON.
 
     Token statistics are included in _meta field, which is NOT sent to the LLM
     and only visible in Claude Code's special logs/metadata (set RTFD_TRACK_TOKENS=true to enable).
@@ -72,29 +65,30 @@ def serialize_response_with_meta(data: Any) -> CallToolResult:
 
     Returns:
         CallToolResult with:
-          - content: Serialized data in active format
-          - _meta: Token statistics comparing JSON vs TOON (only if tracking enabled)
+          - content: Serialized data in JSON format
+          - _meta: Token statistics (only if tracking enabled)
     """
-    use_toon = os.getenv("USE_TOON", "false").lower() == "true"
     track_tokens = os.getenv("RTFD_TRACK_TOKENS", "false").lower() == "true"
 
-    active_format = "toon" if use_toon else "json"
+    response_text = json.dumps(data)
 
-    # If token tracking is disabled, just serialize to active format
+    # If token tracking is disabled, just serialize to JSON
     if not track_tokens:
-        response_text = encode(data) if use_toon else json.dumps(data)
         return CallToolResult(
             content=[TextContent(type="text", text=response_text)]
         )
 
-    # Token tracking enabled: serialize to both formats for comparison
+    # Token tracking enabled
     try:
-        json_text = json.dumps(data)
-        toon_text = encode(data)
-        response_text = toon_text if use_toon else json_text
-
         # Calculate token statistics
-        token_stats = calculate_token_stats(json_text, toon_text, active_format)
+        token_count = count_tokens(response_text)
+        
+        token_stats = {
+            "tokens_json": token_count,
+            "tokens_sent": token_count,
+            "format": "json",
+            "bytes_json": len(response_text),
+        }
 
         # Return CallToolResult with content and metadata
         return CallToolResult(
@@ -103,7 +97,6 @@ def serialize_response_with_meta(data: Any) -> CallToolResult:
         )
     except Exception as e:
         # Fallback: still return response, but with error in metadata
-        response_text = encode(data) if use_toon else json.dumps(data)
         return CallToolResult(
             content=[TextContent(type="text", text=response_text)],
             _meta={"token_stats": {"error": f"Token counting failed: {str(e)}"}}

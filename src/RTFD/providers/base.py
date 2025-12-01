@@ -77,7 +77,7 @@ class BaseProvider(ABC):
         Return dict of tool_name -> async_function for MCP registration.
 
         Only called if expose_as_tool=True in metadata.
-        Each function should return TOON-serialized string.
+        Each function should return serialized string.
 
         Returns:
             Dict mapping tool names to async callable functions

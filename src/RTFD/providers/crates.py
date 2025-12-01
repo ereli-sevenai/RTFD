@@ -163,12 +163,12 @@ class CratesProvider(BaseProvider):
         """Return MCP tool functions."""
 
         async def search_crates(query: str, limit: int = 5) -> CallToolResult:
-            """Search for Rust crates on crates.io. Returns data in TOON format."""
+            """Search for Rust crates on crates.io. Returns data in JSON format."""
             result = await self._search_crates(query, per_page=limit)
             return serialize_response_with_meta(result)
 
         async def crates_metadata(crate: str) -> CallToolResult:
-            """Get detailed metadata for a Rust crate from crates.io. Returns data in TOON format."""
+            """Get detailed metadata for a Rust crate from crates.io. Returns data in JSON format."""
             result = await self._get_crate_metadata(crate)
             return serialize_response_with_meta(result)
 

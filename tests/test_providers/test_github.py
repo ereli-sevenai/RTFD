@@ -109,7 +109,7 @@ async def test_github_repo_search_tool(provider):
         assert result.content[0].type == "text"
         text_content = result.content[0].text
         assert isinstance(text_content, str)
-        assert "[" in text_content  # TOON array format
+        assert "[" in text_content  # JSON array format
     except Exception as e:
         # May fail due to rate limits without GITHUB_TOKEN
         assert "403" in str(e) or "rate limit" in str(e).lower()

@@ -13,7 +13,6 @@ This server solves a common problem where LLMs hallucinate APIs or provide outda
 
 *   **Accuracy:** Agents can access the latest documentation for libraries, ensuring they use the correct version-specific APIs and avoid deprecated methods.
 *   **Context Awareness:** Instead of just getting a raw text dump, the server extracts key sections like installation instructions, quickstart guides, and API references, giving the agent exactly what it needs.
-*   **Efficiency:** The server supports TOON (Token-Oriented Object Notation) serialization, which can reduce the token cost of documentation responses by approximately 30% compared to standard JSON.
 *   **Privacy:** Unlike cloud-based documentation services, RTFD runs entirely on your local machine. Your queries and the documentation you access never leave your system, ensuring complete privacy and no data collection.
 *   **Universality:** It supports multiple ecosystems including Python, JavaScript/TypeScript, Rust, Go, Zig, Docker, and general GitHub repositories, making it a versatile tool for polyglot development.
 
@@ -46,7 +45,6 @@ You want to keep your project's dependencies up to date but don't want to manual
 *   **Format Conversion:** Automatically converts reStructuredText and HTML to Markdown for consistent formatting and easier consumption by LLMs.
 *   **Multi-Source Search:** Aggregates results from PyPI, npm, crates.io, GoDocs, Zig docs, DockerHub, and GitHub.
 *   **Pluggable Architecture:** Easily add new documentation providers by creating a single provider module.
-*   **Token Efficiency:** Optional support for TOON serialization to reduce response size and token usage.
 *   **Error Resilience:** Failures in one provider do not crash the server; the system is designed to degrade gracefully.
 
 ## Quickstart
@@ -67,21 +65,14 @@ You want to keep your project's dependencies up to date but don't want to manual
     rtfd
     ```
 
-4.  **Configure Serialization (Optional):**
-    By default, the server uses JSON. To use TOON for token efficiency, set `USE_TOON=true`:
-    ```bash
-    export USE_TOON=true
-    rtfd
-    ```
-
-5.  **Configure Documentation Fetching (Optional):**
+4.  **Configure Documentation Fetching (Optional):**
     Content fetching tools are enabled by default. To disable them and only use metadata tools:
     ```bash
     export RTFD_FETCH=false
     rtfd
     ```
 
-6.  **Configure Token Counting (Optional):**
+5.  **Configure Token Counting (Optional):**
     To enable token counting in response metadata (useful for debugging usage):
     ```bash
     export RTFD_TRACK_TOKENS=true
@@ -90,7 +81,7 @@ You want to keep your project's dependencies up to date but don't want to manual
 
 ## Available Tools
 
-All tool responses are returned in JSON format by default, or TOON if configured.
+All tool responses are returned in JSON format.
 
 ### Aggregator
 *   `search_library_docs(library, limit=5)`: Combined lookup across all providers (PyPI, npm, crates.io, GoDocs, GitHub). Note: Zig and DockerHub are accessed via dedicated tools.
@@ -153,9 +144,8 @@ To add a custom provider, create a new file in the providers directory inheritin
 ## Notes
 
 *   **Token Counting:** Disabled by default. Set `RTFD_TRACK_TOKENS=true` to see token stats in Claude Code logs.
-*   **TOON Format:** Set `USE_TOON=true` to enable.
 *   **Rate Limiting:** The crates.io provider respects the 1 request/second limit.
-*   **Dependencies:** `mcp`, `httpx`, `beautifulsoup4`, `toonify`, `markdownify`, `docutils`, `tiktoken`.
+*   **Dependencies:** `mcp`, `httpx`, `beautifulsoup4`, `markdownify`, `docutils`, `tiktoken`.
 
 ## Architecture
 
@@ -163,30 +153,16 @@ To add a custom provider, create a new file in the providers directory inheritin
 *   **Framework:** Uses `mcp.server.fastmcp.FastMCP` to declare tools and run the server over stdio.
 *   **HTTP layer:** `httpx.AsyncClient` with a shared `_http_client()` factory that applies timeouts, redirects, and user-agent headers.
 *   **Data model:** Responses are plain dicts for easy serialization over MCP.
-*   **Serialization:** Tool responses use `serialize_response_with_meta()` from `utils.py`. Format is configurable via `USE_TOON` environment variable.
+*   **Serialization:** Tool responses use `serialize_response_with_meta()` from `utils.py`.
 *   **Token counting:** Optional token statistics in the `meta` field (disabled by default). Enable with `RTFD_TRACK_TOKENS=true`.
 
 ## Serialization and Token Counting
 
 Tool responses are handled by `serialize_response_with_meta()` in `utils.py`:
 
-*   **Format selection:** Controlled by `USE_TOON` environment variable (defaults to `false` for JSON).
-*   **TOON format:** When `USE_TOON=true`, uses the `toonify` library to achieve ~30% token reduction compared to JSON, particularly effective for arrays of uniform objects (e.g., search results).
-*   **Token statistics:** When `RTFD_TRACK_TOKENS=true`, the response includes a `_meta` field with token counts (`tokens_json`, `tokens_toon`, `savings_percent`, etc.).
+*   **Token statistics:** When `RTFD_TRACK_TOKENS=true`, the response includes a `_meta` field with token counts (`tokens_json`, `tokens_sent`, `bytes_json`).
 *   **Token counting:** Uses `tiktoken` library with `cl100k_base` encoding (compatible with Claude models).
 *   **Zero-cost metadata:** Token statistics appear in the `_meta` field of `CallToolResult`, which is visible in Claude Code's special metadata logs but NOT sent to the LLM, costing 0 tokens.
-
-Example: A result with 2 GitHub repos in TOON vs JSON:
-
-```
-# TOON (611 chars)
-github_repos[2]{name,stars,url}:
-  psf/requests,52000,https://github.com/psf/requests
-  requests/toolbelt,8800,https://github.com/requests/toolbelt
-
-# JSON (867 chars)
-{"github_repos":[{"name":"psf/requests","stars":52000,"url":"https://github.com/psf/requests"},{"name":"requests/toolbelt","stars":8800,"url":"https://github.com/requests/toolbelt"}]}
-```
 
 ## Extensibility & Development
 
@@ -201,5 +177,5 @@ To add a custom provider:
 ### Development Notes
 *   **Dependencies:** Declared in `pyproject.toml` (Python 3.10+).
 *   **Testing:** Use `pytest` to run the test suite.
-*   **Environment:** If you change environment-sensitive settings (e.g., `GITHUB_TOKEN`, `USE_TOON`), restart the `rtfd` process.
+*   **Environment:** If you change environment-sensitive settings (e.g., `GITHUB_TOKEN`), restart the `rtfd` process.
 
