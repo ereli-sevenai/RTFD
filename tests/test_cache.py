@@ -91,3 +91,17 @@ def test_cache_stats(cache_manager):
     stats = cache_manager.get_stats()
     assert stats["entry_count"] == 1
 
+def test_cache_preview_content(cache_manager):
+    """Test that cache preview includes description."""
+    # Entry with PyPI summary
+    data = {
+        "library": "requests",
+        "pypi": {"summary": "HTTP for Humans"}
+    }
+    cache_manager.set("search:requests:5", data)
+    
+    entries = cache_manager.get_all_entries()
+    entry = entries["search:requests:5"]
+    assert "HTTP for Humans" in entry["content_preview"]
+    assert "search:requests" in entry["content_preview"]
+
