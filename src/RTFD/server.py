@@ -147,6 +147,13 @@ async def search_library_docs(library: str, limit: int = 5) -> CallToolResult:
     return serialize_response_with_meta(result)
 
 
+@mcp.tool(description="Get information about the current cache usage.")
+async def get_cache_info() -> CallToolResult:
+    """Return cache statistics including entry count and size."""
+    stats = _cache_manager.get_stats()
+    return serialize_response_with_meta(stats)
+
+
 # Auto-register all provider tools
 _register_provider_tools()
 

@@ -150,3 +150,28 @@ class CacheManager:
         except Exception as e:
             print(f"Cache cleanup error: {e}")
             return 0
+
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get cache statistics.
+
+        Returns:
+            Dict containing entry_count, db_path, and db_size_bytes.
+        """
+        stats = {
+            "entry_count": 0,
+            "db_path": self.db_path,
+            "db_size_bytes": 0,
+        }
+        
+        try:
+            if os.path.exists(self.db_path):
+                stats["db_size_bytes"] = os.path.getsize(self.db_path)
+                
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute("SELECT COUNT(*) FROM cache")
+                stats["entry_count"] = cursor.fetchone()[0]
+        except Exception as e:
+            print(f"Cache stats error: {e}")
+            
+        return stats

@@ -77,3 +77,17 @@ def test_cache_metadata(cache_manager):
     entry = cache_manager.get(key)
     assert entry is not None
     assert entry.metadata == metadata
+
+def test_cache_stats(cache_manager):
+    """Test retrieving cache statistics."""
+    # Empty cache
+    stats = cache_manager.get_stats()
+    assert stats["entry_count"] == 0
+    assert stats["db_path"] == cache_manager.db_path
+    assert stats["db_size_bytes"] > 0  # DB file exists and has schema
+    
+    # Add entry
+    cache_manager.set("key1", {"foo": "bar"})
+    stats = cache_manager.get_stats()
+    assert stats["entry_count"] == 1
+

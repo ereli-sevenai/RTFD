@@ -163,3 +163,29 @@ async def test_locate_library_docs_uses_cache(monkeypatch):
     # Verify provider was NOT called (we can't easily verify this without mocking providers too, 
     # but the result being the cached data is strong evidence if the cached data is unique)
 
+
+@pytest.mark.asyncio
+async def test_get_cache_info(monkeypatch):
+    """Test get_cache_info tool."""
+    from src.RTFD.server import get_cache_info
+    
+    # Mock cache stats
+    class MockCacheManager:
+        def get_stats(self):
+            return {
+                "entry_count": 10,
+                "db_path": "/tmp/test.db",
+                "db_size_bytes": 1024
+            }
+            
+    # Patch the global _cache_manager in server.py
+    import src.RTFD.server as server
+    monkeypatch.setattr(server, "_cache_manager", MockCacheManager())
+    
+    result = await get_cache_info()
+    
+    assert result.content[0].type == "text"
+    text_content = result.content[0].text
+    assert '"entry_count": 10' in text_content
+    assert '"db_path": "/tmp/test.db"' in text_content
+

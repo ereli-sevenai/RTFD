@@ -82,7 +82,7 @@ You want to keep your project's dependencies up to date but don't want to manual
 6.  **Configure Caching (Optional):**
     Caching is enabled by default to improve performance and reduce load on providers.
     -   **Enable/Disable:** `export RTFD_CACHE_ENABLED=false` (default: `true`)
-    -   **TTL:** `export RTFD_CACHE_TTL=3600` (default: `86400` seconds / 24 hours)
+    -   **TTL:** `export RTFD_CACHE_TTL=3600` (default: `604800` seconds / 1 week)
     -   **Location:** `~/.cache/rtfd/cache.db`
 
 ## Available Tools

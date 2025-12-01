@@ -112,7 +112,7 @@ def get_cache_config() -> tuple[bool, float]:
     """
     enabled = os.getenv("RTFD_CACHE_ENABLED", "true").lower() not in ("false", "0", "no")
     try:
-        ttl = float(os.getenv("RTFD_CACHE_TTL", "86400"))  # Default 24 hours
+        ttl = float(os.getenv("RTFD_CACHE_TTL", "604800"))  # Default 1 week
     except ValueError:
-        ttl = 86400.0
+        ttl = 604800.0
     return enabled, ttl
