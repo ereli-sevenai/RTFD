@@ -226,7 +226,7 @@ class GcpProvider(BaseProvider):
         Search for GCP services using GitHub API and local mapping.
 
         Args:
-            query: Search query (e.g., "storage", "compute", "bigquery")
+            query: Search query (e.g., "storage", "compute", "bigquery", "gke audit")
             limit: Maximum number of results to return
 
         Returns:
@@ -250,17 +250,47 @@ class GcpProvider(BaseProvider):
 
         # Search our local mapping for partial matches
         query_lower = query.lower()
+
+        # If query has multiple words (e.g., "gke audit"), try first word as service
+        query_words = query_lower.split()
+        if len(query_words) > 1 and not results:
+            # Try to find service from first word
+            first_word_normalized = self._normalize_service_name(query_words[0])
+            if first_word_normalized and first_word_normalized in GCP_SERVICE_DOCS:
+                service_info = GCP_SERVICE_DOCS[first_word_normalized]
+                # Add note about topic in description
+                topic = " ".join(query_words[1:])
+                results.append(
+                    {
+                        "name": service_info["name"],
+                        "description": f"{service_info['description']} (searching for: {topic})",
+                        "api": service_info["api"],
+                        "docs_url": service_info["url"],
+                        "source": "gcp_mapping_contextual",
+                    }
+                )
+
+        # Search for partial matches in service names and descriptions
         for key, service_info in GCP_SERVICE_DOCS.items():
             # Skip if already added
             if normalized == key:
                 continue
+            if len(query_words) > 1 and self._normalize_service_name(query_words[0]) == key:
+                continue
 
-            # Check if query matches service name, key, or description
-            if (
-                query_lower in service_info["name"].lower()
-                or query_lower in key
-                or query_lower in service_info["description"].lower()
-            ):
+            # Check if ANY word in query matches service name, key, or description
+            query_matches = False
+            for word in query_words:
+                if len(word) > 2:  # Skip very short words
+                    if (
+                        word in service_info["name"].lower()
+                        or word in key
+                        or word in service_info["description"].lower()
+                    ):
+                        query_matches = True
+                        break
+
+            if query_matches:
                 results.append(
                     {
                         "name": service_info["name"],
