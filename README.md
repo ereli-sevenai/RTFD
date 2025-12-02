@@ -7,7 +7,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/aserper/rtfd.svg?style=social)](https://github.com/aserper/rtfd)
 [![GitHub forks](https://img.shields.io/github/forks/aserper/rtfd.svg?style=social)](https://github.com/aserper/rtfd/fork)
 
-The RTFD (Read The F*****g Docs) MCP Server acts as a bridge between Large Language Models (LLMs) and real-time documentation. It allows coding agents to query package repositories like PyPI, npm, crates.io, GoDocs, DockerHub, and GitHub to retrieve the most up-to-date documentation and context.
+The RTFD (Read The F*****g Docs) MCP Server acts as a bridge between Large Language Models (LLMs) and real-time documentation. It allows coding agents to query package repositories like PyPI, npm, crates.io, GoDocs, DockerHub, GitHub, and Google Cloud Platform (GCP) to retrieve the most up-to-date documentation and context.
 
 This server solves a common problem where LLMs hallucinate APIs or provide outdated code examples because their training data is months or years old. By giving agents access to the actual documentation, RTFD ensures that generated code is accurate and follows current best practices.
 
@@ -16,7 +16,7 @@ This server solves a common problem where LLMs hallucinate APIs or provide outda
 *   **Accuracy:** Agents can access the latest documentation for libraries, ensuring they use the correct version-specific APIs and avoid deprecated methods.
 *   **Context Awareness:** Instead of just getting a raw text dump, the server extracts key sections like installation instructions, quickstart guides, and API references, giving the agent exactly what it needs.
 *   **Privacy:** Unlike cloud-based documentation services, RTFD runs entirely on your local machine. Your queries and the documentation you access never leave your system, ensuring complete privacy and no data collection.
-*   **Supported Sources:** PyPI (Python), npm (JavaScript/TypeScript), crates.io (Rust), GoDocs (Go), Zig docs, DockerHub, and GitHub repositories. 
+*   **Supported Sources:** PyPI (Python), npm (JavaScript/TypeScript), crates.io (Rust), GoDocs (Go), Zig docs, DockerHub, GitHub repositories, and Google Cloud Platform (GCP). 
 
 ## Use Cases
 
@@ -39,7 +39,7 @@ RTFD helps in scenarios like:
 *   **Documentation Content Fetching:** Retrieve actual documentation content (README and key sections) from PyPI, npm, and GitHub rather than just URLs.
 *   **Smart Section Extraction:** Automatically prioritizes and extracts relevant sections such as "Installation", "Usage", and "API Reference" to reduce noise.
 *   **Format Conversion:** Automatically converts reStructuredText and HTML to Markdown for consistent formatting and easier consumption by LLMs.
-*   **Multi-Source Search:** Aggregates results from PyPI, npm, crates.io, GoDocs, Zig docs, DockerHub, and GitHub.
+*   **Multi-Source Search:** Aggregates results from PyPI, npm, crates.io, GoDocs, Zig docs, DockerHub, GitHub, and GCP.
 *   **Pluggable Architecture:** Easily add new documentation providers by creating a single provider module.
 *   **Error Resilience:** Failures in one provider do not crash the server; the system is designed to degrade gracefully.
 
@@ -126,7 +126,7 @@ python scripts/bump_version.py major   # 0.1.0 → 1.0.0
 All tool responses are returned in JSON format.
 
 ### Aggregator
-*   `search_library_docs(library, limit=5)`: Combined lookup across all providers (PyPI, npm, crates.io, GoDocs, GitHub). Note: Zig and DockerHub are accessed via dedicated tools.
+*   `search_library_docs(library, limit=5)`: Combined lookup across all providers (PyPI, npm, crates.io, GoDocs, GCP, GitHub). Note: Zig and DockerHub are accessed via dedicated tools.
 
 ### Cache Management
 *   `get_cache_info()`: Get cache statistics including entry count, database size, and location.
@@ -136,6 +136,7 @@ All tool responses are returned in JSON format.
 *   `fetch_pypi_docs(package, max_bytes=20480)`: Fetch Python package documentation from PyPI.
 *   `fetch_npm_docs(package, max_bytes=20480)`: Fetch npm package documentation.
 *   `fetch_godocs_docs(package, max_bytes=20480)`: Fetch Go package documentation from godocs.io (e.g., 'github.com/gorilla/mux').
+*   `fetch_gcp_service_docs(service, max_bytes=20480)`: Fetch Google Cloud Platform service documentation from docs.cloud.google.com (e.g., "storage", "compute", "bigquery").
 *   `fetch_github_readme(repo, max_bytes=20480)`: Fetch README from a GitHub repository (format: "owner/repo").
 *   `fetch_docker_image_docs(image, max_bytes=20480)`: Fetch Docker image documentation and description from DockerHub (e.g., "nginx", "postgres", "user/image").
 *   `fetch_dockerfile(image)`: Fetch the Dockerfile for a Docker image by parsing its description for GitHub links (best-effort).
@@ -146,6 +147,7 @@ All tool responses are returned in JSON format.
 *   `crates_metadata(crate)`: Get Rust crate metadata.
 *   `search_crates(query, limit=5)`: Search Rust crates.
 *   `godocs_metadata(package)`: Retrieve Go package documentation.
+*   `search_gcp_services(query, limit=5)`: Search Google Cloud Platform services by name or keyword (e.g., "storage", "compute", "bigquery").
 *   `zig_docs(query)`: Search Zig documentation.
 *   `docker_image_metadata(image)`: Get DockerHub Docker image metadata (stars, pulls, description, etc.).
 *   `search_docker_images(query, limit=5)`: Search for Docker images on DockerHub.
@@ -187,8 +189,16 @@ The RTFD server uses a modular architecture. Providers are located in `src/RTFD/
 
 To add a custom provider, create a new file in the providers directory inheriting from `BaseProvider`, implement the required methods, and the server will pick it up automatically.
 
-## Notes
+## Provider-Specific Notes
 
+### GCP (Google Cloud Platform)
+*   **Service Discovery:** Uses both a local service mapping (20+ common services) and GitHub API search of the googleapis/googleapis repository.
+*   **Documentation Source:** Fetches documentation by scraping docs.cloud.google.com and converting to Markdown.
+*   **GitHub Token:** Optional but recommended. Without a `GITHUB_TOKEN`, GitHub API search is limited to 60 requests/hour. With a token, the limit increases to 5,000 requests/hour.
+*   **Supported Services:** Cloud Storage, Compute Engine, BigQuery, Cloud Functions, Cloud Run, Pub/Sub, Firestore, GKE, App Engine, Cloud Vision, Cloud Speech, IAM, Secret Manager, and more.
+*   **Service Name Formats:** Accepts various formats (e.g., "storage", "cloud storage", "Cloud Storage", "kubernetes", "k8s" for GKE).
+
+### Other Providers
 *   **Token Counting:** Disabled by default. Set `RTFD_TRACK_TOKENS=true` to see token stats in Claude Code logs.
 *   **Rate Limiting:** The crates.io provider respects the 1 request/second limit.
 *   **Dependencies:** `mcp`, `httpx`, `beautifulsoup4`, `markdownify`, `docutils`, `tiktoken`.
