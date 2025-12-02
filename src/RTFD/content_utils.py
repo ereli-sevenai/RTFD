@@ -9,6 +9,7 @@ from io import StringIO
 
 from markdownify import markdownify as md
 from docutils.core import publish_parts
+from docutils.writers.html5_polyglot import Writer as HTMLWriter
 
 
 # Section priority keywords for smart content extraction
@@ -76,7 +77,7 @@ def convert_rst_to_markdown(rst: str) -> str:
         # Convert reST to HTML using docutils
         parts = publish_parts(
             source=rst,
-            writer_name="html",
+            writer=HTMLWriter(),
             settings_overrides={
                 "report_level": 5,  # Suppress warnings
                 "halt_level": 5,  # Don't halt on errors
