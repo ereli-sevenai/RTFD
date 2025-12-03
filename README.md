@@ -225,6 +225,7 @@ All tool responses are returned in JSON format.
 *   `list_repo_contents(repo, path="")`: List contents of a directory in a GitHub repository (format: "owner/repo").
 *   `get_file_content(repo, path, max_bytes=102400)`: Get content of a specific file from a GitHub repository.
 *   `get_repo_tree(repo, recursive=False, max_items=1000)`: Get the complete file tree of a GitHub repository.
+*   `get_commit_diff(repo, base, head)`: Get the diff between two commits, branches, or tags.
 
 ## Integration with Claude Code
 

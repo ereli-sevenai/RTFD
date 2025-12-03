@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- New `get_commit_diff` tool in GitHub provider to compare commits, branches, or tags.
 
 ### Changed
 

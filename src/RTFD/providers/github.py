@@ -24,7 +24,8 @@ class GitHubProvider(BaseProvider):
                 "fetch_github_readme",
                 "list_repo_contents",
                 "get_file_content",
-                "get_repo_tree"
+                "get_repo_tree",
+                "get_commit_diff"
             ])
 
         return ProviderMetadata(
@@ -429,6 +430,58 @@ class GitHubProvider(BaseProvider):
                 "error": f"Failed to get repository tree: {str(exc)}",
             }
 
+    async def _get_commit_diff(
+        self, owner: str, repo: str, base: str, head: str
+    ) -> Dict[str, Any]:
+        """
+        Get the diff between two commits.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            base: Base commit/branch/tag
+            head: Head commit/branch/tag
+
+        Returns:
+            Dict with diff content
+        """
+        try:
+            headers = self._get_headers()
+            # Request raw diff format
+            headers["Accept"] = "application/vnd.github.diff"
+
+            url = f"https://api.github.com/repos/{owner}/{repo}/compare/{base}...{head}"
+
+            async with await self._http_client() as client:
+                resp = await client.get(url, headers=headers)
+                resp.raise_for_status()
+                diff_content = resp.text
+
+            return {
+                "repository": f"{owner}/{repo}",
+                "base": base,
+                "head": head,
+                "diff": diff_content,
+                "size_bytes": len(diff_content.encode("utf-8")),
+            }
+
+        except httpx.HTTPStatusError as exc:
+            return {
+                "repository": f"{owner}/{repo}",
+                "base": base,
+                "head": head,
+                "diff": "",
+                "error": f"GitHub returned {exc.response.status_code}",
+            }
+        except Exception as exc:
+            return {
+                "repository": f"{owner}/{repo}",
+                "base": base,
+                "head": head,
+                "diff": "",
+                "error": f"Failed to get diff: {str(exc)}",
+            }
+
     def get_tools(self) -> Dict[str, Callable]:
         """Return MCP tool functions."""
 
@@ -637,6 +690,40 @@ class GitHubProvider(BaseProvider):
             result = await self._get_repo_tree(owner, repo_name, recursive, max_items)
             return serialize_response_with_meta(result)
 
+        async def get_commit_diff(repo: str, base: str, head: str) -> CallToolResult:
+            """
+            Get the diff between two commits, branches, or tags in a GitHub repository.
+
+            USE THIS WHEN: You need to see what changed between two versions of code.
+
+            BEST FOR: Analyzing changes, reviewing pull requests (by comparing branches), or checking version differences.
+            Returns the raw git diff output.
+
+            Args:
+                repo: Repository in format "owner/repo" (e.g., "psf/requests")
+                base: Base commit SHA, branch name, or tag (e.g., "main", "v1.0.0", "a1b2c3d")
+                head: Head commit SHA, branch name, or tag (e.g., "feature-branch", "v1.1.0", "e5f6g7h")
+
+            Returns:
+                JSON with the raw diff content.
+
+            Example: get_commit_diff("psf/requests", "v2.28.0", "v2.28.1") → Returns diff between versions
+            """
+            parts = repo.split("/", 1)
+            if len(parts) != 2:
+                error_result = {
+                    "repository": repo,
+                    "base": base,
+                    "head": head,
+                    "diff": "",
+                    "error": "Invalid repo format. Use 'owner/repo'",
+                }
+                return serialize_response_with_meta(error_result)
+
+            owner, repo_name = parts
+            result = await self._get_commit_diff(owner, repo_name, base, head)
+            return serialize_response_with_meta(result)
+
         tools = {
             "github_repo_search": github_repo_search,
             "github_code_search": github_code_search,
@@ -646,5 +733,6 @@ class GitHubProvider(BaseProvider):
             tools["list_repo_contents"] = list_repo_contents
             tools["get_file_content"] = get_file_content
             tools["get_repo_tree"] = get_repo_tree
+            tools["get_commit_diff"] = get_commit_diff
 
         return tools
