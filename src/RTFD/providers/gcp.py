@@ -618,14 +618,13 @@ class GcpProvider(BaseProvider):
             query: str, limit: int = 5
         ) -> CallToolResult:
             """
-            Search for GCP services matching a query.
+            Search for GCP services and documentation matching a query.
 
-            Searches across Google Cloud Platform services including Cloud Storage,
-            Compute Engine, BigQuery, Cloud Functions, and more. Uses both a local
-            service mapping and GitHub API search of the googleapis repository.
+            Searches `cloud.google.com` to find relevant documentation and services.
+            Also checks a local service mapping and the googleapis GitHub repository.
+            Use this tool to find documentation for any GCP topic (e.g. "vertex ai", "how to configure iam").
 
-            Note: Without a GITHUB_TOKEN environment variable, GitHub API search is
-            limited to 60 requests/hour. With a token, the limit is 5,000 requests/hour.
+            Note: GitHub API search (fallback) is limited to 60 requests/hour without GITHUB_TOKEN.
 
             Args:
                 query: Service name or keyword (e.g., "storage", "compute", "bigquery")
