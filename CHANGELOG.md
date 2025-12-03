@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- Fixed "Invalid control character" error by redirecting all internal logging/prints to stderr to prevent MCP protocol corruption.
 
 ## [0.2.5] - 2025-12-03
 
