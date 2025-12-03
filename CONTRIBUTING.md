@@ -38,6 +38,7 @@ Thank you for your interest in contributing to RTFD! This document outlines how 
 
 3. **Update the CHANGELOG.md**:
    - Add your changes under the `[Unreleased]` section
+   - **Note**: Do not create a new version header. The release process will automatically move your `[Unreleased]` changes to a new version section.
    - Follow the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format
    - Use categories: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`
    - Write clear, user-focused descriptions

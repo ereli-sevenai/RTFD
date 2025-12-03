@@ -35,6 +35,12 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
+    - name: Validate Changelog
+      run: python scripts/update_changelog.py check
+
+    - name: Update Changelog
+      run: python scripts/update_changelog.py update ${{ inputs.bump_type }}
+
     - name: Bump version
       run: python scripts/bump_version.py ${{ inputs.bump_type }}
 
@@ -51,10 +57,13 @@ jobs:
           f.write(f"version={version}\n")
       shell: python
 
+    - name: Extract Release Notes
+      run: python scripts/update_changelog.py extract ${{ steps.version.outputs.version }} > release_notes.md
+
     - name: Commit version bump
       run: |
-        git add pyproject.toml src/RTFD/__init__.py
-        git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+        git add pyproject.toml src/RTFD/__init__.py CHANGELOG.md
+        git commit -m "chore: release v${{ steps.version.outputs.version }}"
 
     - name: Create tag
       run: |
@@ -86,12 +95,7 @@ jobs:
       with:
         tag_name: v${{ steps.version.outputs.version }}
         name: v${{ steps.version.outputs.version }}
-        body: |
-          Version ${{ steps.version.outputs.version }} has been published to PyPI.
-
-          Install with: `pip install rtfd-mcp==${{ steps.version.outputs.version }}`
-
-          See [the changelog](https://github.com/${{ github.repository }}/commits/main) for changes in this release.
+        body_path: release_notes.md
         draft: false
         prerelease: false
       env:

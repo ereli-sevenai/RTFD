@@ -111,6 +111,7 @@ To release a new version:
 3. Click **"Run workflow"**
 4. Select version bump type (**patch**, **minor**, or **major**)
 5. Done! The workflow will:
+   - Validate and update CHANGELOG.md
    - Update version in code
    - Create a git tag and commit
    - Create a GitHub release
