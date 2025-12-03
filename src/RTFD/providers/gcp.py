@@ -304,29 +304,20 @@ class GcpProvider(BaseProvider):
             if len(results) >= limit:
                 break
 
-        # If we have an EXACT local match, that's usually the best result
-        if normalized and normalized in GCP_SERVICE_DOCS:
-             return results[:limit]
+        # If we have results from local mapping (either exact or partial matches),
+        # prioritize those over external searches
+        if results:
+            return results[:limit]
 
-        # For partial/contextual matches, we want to check cloud.google.com search first
-        # because it might have a more specific result (e.g. "gke autopilot" vs "gke")
-        
-        # Try searching cloud.google.com directly
+        # Only search cloud.google.com if we don't have local matches
+        # This is for very specific queries that aren't in our mapping
         try:
             cloud_results = await self._search_cloud_google_com(query, limit)
             if cloud_results:
-                # If we have cloud results, insert them BEFORE the contextual local matches
-                # But keep exact matches (if any) at the top (handled above)
-                
-                # Filter out cloud results that are duplicates of what we already have
-                existing_urls = {r["docs_url"] for r in results}
-                new_cloud_results = [r for r in cloud_results if r["docs_url"] not in existing_urls]
-                
-                # Prepend cloud results to the existing (contextual) results
-                results = new_cloud_results + results
+                results.extend(cloud_results)
         except Exception:
             pass
-            
+
         if len(results) >= limit:
             return results[:limit]
 
