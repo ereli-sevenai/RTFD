@@ -110,18 +110,22 @@ To release a new version:
 2. Select **"Release to PyPI"** workflow
 3. Click **"Run workflow"**
 4. Select version bump type (**patch**, **minor**, or **major**)
-5. Done! The workflow will:
-   - Validate and update CHANGELOG.md
-   - Update version in code
+5. Done! The workflow will automatically:
+   - Validate that `[Unreleased]` changes exist in `CHANGELOG.md`
+   - Move `[Unreleased]` changes to a new version section with date stamp
+   - Update comparison links
+   - Bump version in `pyproject.toml` and `__init__.py`
    - Create a git tag and commit
-   - Create a GitHub release
-   - Automatically publish to PyPI
+   - Create a GitHub release with formatted notes
+   - Publish to PyPI
 
-For local version management:
+For local testing (dry run):
 ```bash
-python scripts/bump_version.py patch   # 0.1.0 → 0.1.1
-python scripts/bump_version.py minor   # 0.1.0 → 0.2.0
-python scripts/bump_version.py major   # 0.1.0 → 1.0.0
+# Check if changelog is ready
+python scripts/update_changelog.py check
+
+# Preview changelog update (dry run)
+python scripts/update_changelog.py update patch
 ```
 
 ## Available Tools
