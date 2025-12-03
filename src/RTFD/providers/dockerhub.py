@@ -319,26 +319,54 @@ class DockerHubProvider(BaseProvider):
         """Return MCP tool functions."""
 
         async def search_docker_images(query: str, limit: int = 5) -> CallToolResult:
-            """Search for Docker images on DockerHub.
+            """
+            Search for Docker images on DockerHub by name or keywords.
+
+            USE THIS WHEN: You need to find Docker container images for a specific service, application, or technology.
+
+            BEST FOR: Discovering official and community Docker images.
+            Returns multiple matching images with names, descriptions, star counts, pull counts, and whether they're official.
+
+            After finding an image, use:
+            - docker_image_metadata() for detailed information
+            - fetch_docker_image_docs() for README and usage instructions
+            - fetch_dockerfile() to see how the image is built
 
             Args:
-                query: Search query (image name or keyword)
-                limit: Maximum number of results to return (default 5)
+                query: Search query (e.g., "nginx", "postgres", "machine learning", "python")
+                limit: Maximum number of results (default 5)
 
             Returns:
-                List of matching Docker images with metadata
+                JSON with list of matching images including name, description, stars, pulls, official status
+
+            Example: search_docker_images("postgres") → Finds official postgres image and alternatives
             """
             result = await self._search_images(query, limit)
             return serialize_response_with_meta(result)
 
         async def docker_image_metadata(image: str) -> CallToolResult:
-            """Retrieve DockerHub Docker image metadata.
+            """
+            Get detailed metadata for a specific Docker image from DockerHub.
+
+            USE THIS WHEN: You need comprehensive information about a Docker image (stats, description, tags).
+
+            RETURNS: Image metadata including popularity metrics and description.
+            Does NOT include full README documentation.
+
+            The response includes:
+            - Image name, namespace, description
+            - Star count (popularity)
+            - Pull count (total downloads)
+            - Last updated timestamp
+            - Official/community status
 
             Args:
-                image: Docker image name (e.g., 'nginx', 'postgres', 'user/image')
+                image: Docker image name (e.g., "nginx", "postgres", "username/custom-image")
 
             Returns:
-                Image metadata including stars, pulls, last update, description
+                JSON with comprehensive image metadata
+
+            Example: docker_image_metadata("nginx") → Returns stars, pulls, description for nginx image
             """
             result = await self._fetch_image_metadata(image)
             return serialize_response_with_meta(result)
@@ -346,32 +374,62 @@ class DockerHubProvider(BaseProvider):
         async def fetch_docker_image_docs(
             image: str, max_bytes: int = 20480
         ) -> CallToolResult:
-            """Fetch Docker image documentation from DockerHub.
+            """
+            Fetch actual Docker image documentation and README from DockerHub.
 
-            Returns description and README content for a Docker image.
-            Useful for understanding what an image does and how to use it.
+            USE THIS WHEN: You need usage instructions, environment variables, volume mounts, or examples.
+
+            BEST FOR: Understanding how to use a Docker image and configure it properly.
+            Better than using curl or WebFetch because it:
+            - Extracts README content from DockerHub
+            - Includes image description and key details
+            - Formats content in readable Markdown
+            - Prioritizes important sections (Usage, Environment Variables, Examples)
+
+            Typical content includes:
+            - How to run the container
+            - Available environment variables
+            - Volume mount points
+            - Port configurations
+            - Usage examples and docker-compose snippets
 
             Args:
-                image: Docker image name (e.g., 'nginx', 'postgres', 'user/image')
-                max_bytes: Maximum content size (default ~20KB)
+                image: Docker image name (e.g., "nginx", "postgres", "redis")
+                max_bytes: Maximum content size, default 20KB (increase for detailed docs)
 
             Returns:
-                JSON with image documentation content
+                JSON with README content, size, and source info
+
+            Example: fetch_docker_image_docs("nginx") → Returns README with usage instructions
             """
             result = await self._fetch_image_docs(image, max_bytes)
             return serialize_response_with_meta(result)
 
         async def fetch_dockerfile(image: str) -> CallToolResult:
-            """Fetch the Dockerfile for a Docker image.
-            
-            Attempts to find a link to the Dockerfile in the image's DockerHub description
-            and fetches it from the source (usually GitHub).
-            
+            """
+            Fetch the actual Dockerfile used to build a Docker image.
+
+            USE THIS WHEN: You need to see exactly how an image is built (base image, installed packages, configuration).
+
+            BEST FOR: Understanding image composition, security analysis, or learning how to build similar images.
+            Attempts to find Dockerfile link in DockerHub description and fetches from source (usually GitHub).
+
+            Useful for:
+            - Seeing what base image is used
+            - Identifying installed packages and dependencies
+            - Understanding build process and optimizations
+            - Security auditing (what's included in the image)
+            - Learning Dockerfile best practices from official images
+
+            Note: Not all images have publicly accessible Dockerfiles. Many official images do.
+
             Args:
-                image: Docker image name (e.g., 'nginx', 'python')
-                
+                image: Docker image name (e.g., "nginx", "python", "postgres")
+
             Returns:
-                The content of the Dockerfile if found.
+                JSON with Dockerfile content, source URL, and metadata (or error if not found)
+
+            Example: fetch_dockerfile("nginx") → Returns Dockerfile from nginx GitHub repository
             """
             result = await self._fetch_dockerfile(image)
             return serialize_response_with_meta(result)

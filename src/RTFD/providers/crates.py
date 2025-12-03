@@ -168,12 +168,55 @@ class CratesProvider(BaseProvider):
         """Return MCP tool functions."""
 
         async def search_crates(query: str, limit: int = 5) -> CallToolResult:
-            """Search for Rust crates on crates.io. Returns data in JSON format."""
+            """
+            Search for Rust crates on crates.io by name or keywords.
+
+            USE THIS WHEN: You need to find Rust packages/crates for a specific purpose or library.
+
+            BEST FOR: Discovering which Rust crates exist for a topic or functionality.
+            Returns multiple matching crates with names, versions, descriptions, download counts, and URLs.
+
+            After finding a crate, use:
+            - crates_metadata() to get detailed information about a specific crate
+            - The documentation URL to read full docs (use WebFetch)
+
+            Args:
+                query: Search keywords (e.g., "http client", "web framework", "serde")
+                limit: Maximum number of results (default 5, max 100)
+
+            Returns:
+                JSON with list of matching crates, total results, and metadata
+
+            Example: search_crates("web framework") → Finds actix-web, rocket, axum, etc.
+            """
             result = await self._search_crates(query, per_page=limit)
             return serialize_response_with_meta(result)
 
         async def crates_metadata(crate: str) -> CallToolResult:
-            """Get detailed metadata for a Rust crate from crates.io. Returns data in JSON format."""
+            """
+            Get detailed metadata for a specific Rust crate from crates.io.
+
+            USE THIS WHEN: You need comprehensive information about a specific Rust crate.
+
+            RETURNS: Detailed crate metadata including version, URLs, downloads, and license.
+            Does NOT include full documentation content.
+
+            The response includes:
+            - Crate name, version, description
+            - Documentation URL (docs.rs) - can be passed to WebFetch for full API docs
+            - Repository URL (usually GitHub) - can be used with GitHub provider
+            - Homepage, license, categories, keywords
+            - Download statistics, creation/update dates
+            - Minimum Rust version required
+
+            Args:
+                crate: Crate name (e.g., "serde", "tokio", "actix-web")
+
+            Returns:
+                JSON with comprehensive crate metadata
+
+            Example: crates_metadata("serde") → Returns metadata with docs.rs link and GitHub repo
+            """
             result = await self._get_crate_metadata(crate)
             return serialize_response_with_meta(result)
 

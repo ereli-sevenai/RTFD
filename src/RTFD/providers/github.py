@@ -435,27 +435,72 @@ class GitHubProvider(BaseProvider):
         async def github_repo_search(
             query: str, limit: int = 5, language: Optional[str] = "Python"
         ) -> CallToolResult:
-            """Search GitHub repositories relevant to a library or topic."""
+            """
+            Search for GitHub repositories by keyword or topic.
+
+            USE THIS WHEN: You need to find repositories for a library, framework, or topic.
+
+            BEST FOR: Discovering which repository contains a specific project.
+            Returns repository names, descriptions, stars, and URLs - but NOT the code itself.
+
+            To explore code after finding a repo, use:
+            - get_repo_tree() to see all files
+            - list_repo_contents() to browse directories
+            - get_file_content() to read specific files
+
+            Args:
+                query: Search keywords (e.g., "machine learning", "web framework")
+                limit: Maximum number of results (default 5)
+                language: Filter by programming language (default "Python")
+
+            Example: github_repo_search("requests") → Finds psf/requests repository
+            """
             result = await self._search_repos(query, limit=limit, language=language)
             return serialize_response_with_meta(result)
 
         async def github_code_search(
             query: str, repo: Optional[str] = None, limit: int = 5
         ) -> CallToolResult:
-            """Search GitHub code (optionally scoped to a repository)."""
+            """
+            Search for code snippets across GitHub or within a specific repository.
+
+            USE THIS WHEN: You need to find code examples, function definitions, or usage patterns.
+
+            RETURNS: File paths and locations where code was found - NOT the actual file contents.
+            To read the files, use get_file_content() with the returned paths.
+
+            NOTE: Requires authentication - rate limited without GITHUB_TOKEN.
+
+            Args:
+                query: Code search query (e.g., "def parse_args", "class HTTPClient")
+                repo: Optional repository filter in "owner/repo" format
+                limit: Maximum number of results (default 5)
+
+            Example: github_code_search("async def fetch", repo="psf/requests")
+            """
             result = await self._search_code(query, repo=repo, limit=limit)
             return serialize_response_with_meta(result)
 
         async def fetch_github_readme(repo: str, max_bytes: int = 20480) -> CallToolResult:
             """
-            Fetch README and documentation from GitHub repository.
+            Fetch README file from a GitHub repository.
+
+            USE THIS WHEN: You need the project overview, quick start, or basic documentation.
+
+            BEST FOR: Getting a high-level understanding of a project.
+            The README typically contains installation, usage examples, and project description.
+
+            For deeper code exploration, use:
+            - get_repo_tree() to see the complete file structure
+            - get_file_content() to read specific source files
 
             Args:
-                repo: Repository in format "owner/repo"
-                max_bytes: Maximum content size (default ~20KB)
+                repo: Repository in "owner/repo" format (e.g., "psf/requests")
+                max_bytes: Maximum content size, default 20KB
 
-            Returns:
-                JSON with README content, size, and metadata
+            Returns: JSON with README content, size, and metadata
+
+            Example: fetch_github_readme("psf/requests") → Returns the requests README
             """
             # Parse owner/repo format
             parts = repo.split("/", 1)
@@ -477,12 +522,25 @@ class GitHubProvider(BaseProvider):
             """
             List contents of a directory in a GitHub repository.
 
+            USE THIS WHEN: You need to browse or explore the structure of a repository directory.
+
+            BEST FOR: Discovering what files and folders exist in a specific location.
+            Returns names, paths, types (file/dir), sizes for each item.
+
+            Common workflow:
+            1. Use github_repo_search() to find the repository
+            2. Use get_repo_tree() to see the overall structure
+            3. Use list_repo_contents() to browse specific directories
+            4. Use get_file_content() to read individual files
+
             Args:
-                repo: Repository in format "owner/repo"
-                path: Path to directory (empty string for root)
+                repo: Repository in format "owner/repo" (e.g., "psf/requests")
+                path: Path to directory (empty string for root, e.g., "src/utils")
 
             Returns:
-                JSON with list of files and directories
+                JSON with list of files and directories with metadata
+
+            Example: list_repo_contents("psf/requests", "requests") → Lists files in requests/ directory
             """
             parts = repo.split("/", 1)
             if len(parts) != 2:
@@ -504,13 +562,25 @@ class GitHubProvider(BaseProvider):
             """
             Get content of a specific file from a GitHub repository.
 
+            USE THIS WHEN: You need to read the actual source code or contents of a specific file.
+
+            BEST FOR: Examining implementation details, understanding how code works, or reading configuration files.
+            Returns the full file content (UTF-8 text only, binary files are rejected).
+
+            Automatically handles:
+            - Base64 decoding from GitHub API
+            - UTF-8 conversion with safe truncation
+            - Binary file detection
+
             Args:
-                repo: Repository in format "owner/repo"
-                path: Path to file
-                max_bytes: Maximum content size (default 100KB)
+                repo: Repository in format "owner/repo" (e.g., "psf/requests")
+                path: Path to file (e.g., "requests/api.py")
+                max_bytes: Maximum content size (default 100KB, increase for large files)
 
             Returns:
-                JSON with file content and metadata
+                JSON with file content, size, truncation status, and metadata
+
+            Example: get_file_content("psf/requests", "requests/api.py") → Returns source code of api.py
             """
             parts = repo.split("/", 1)
             if len(parts) != 2:
@@ -532,13 +602,27 @@ class GitHubProvider(BaseProvider):
             """
             Get the full file tree of a GitHub repository.
 
+            USE THIS WHEN: You need to see the overall structure and organization of a repository.
+
+            BEST FOR: Understanding project layout, finding specific files, or getting a complete directory listing.
+            Returns all file paths, types (file/directory), and sizes in a single call.
+
+            Use recursive=True for complete tree (all files in all subdirectories).
+            Use recursive=False for just top-level overview (faster, less data).
+
+            After getting the tree, use:
+            - get_file_content() to read specific files you identified
+            - list_repo_contents() to browse specific directories in detail
+
             Args:
-                repo: Repository in format "owner/repo"
+                repo: Repository in format "owner/repo" (e.g., "psf/requests")
                 recursive: Whether to get full tree recursively (default False)
                 max_items: Maximum number of items to return (default 1000)
 
             Returns:
-                JSON with complete file tree structure
+                JSON with complete file tree structure, branch, and count
+
+            Example: get_repo_tree("psf/requests", recursive=True) → Returns complete file listing
             """
             parts = repo.split("/", 1)
             if len(parts) != 2:

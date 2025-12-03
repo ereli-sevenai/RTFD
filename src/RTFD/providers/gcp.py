@@ -617,20 +617,32 @@ class GcpProvider(BaseProvider):
             query: str, limit: int = 5
         ) -> CallToolResult:
             """
-            Search for GCP services and documentation matching a query.
+            Search for GCP (Google Cloud Platform) services and documentation.
 
-            Searches `cloud.google.com` to find relevant documentation and services.
-            Also checks a local service mapping and the googleapis GitHub repository.
-            Use this tool to find documentation for any GCP topic (e.g. "vertex ai", "how to configure iam").
+            USE THIS WHEN: You need to find Google Cloud services, APIs, or documentation for a specific GCP topic.
+
+            BEST FOR: Discovering which GCP services exist for a use case or finding service documentation.
+            Returns multiple matching services with names, descriptions, API endpoints, and docs URLs.
+
+            Searches:
+            1. Local service mapping (exact and partial matches)
+            2. cloud.google.com website (fallback for specific queries)
+            3. googleapis GitHub repository (API definitions)
+
+            After finding a service, use:
+            - fetch_gcp_service_docs() to get full documentation content
+            - The docs_url with WebFetch for external documentation
 
             Note: GitHub API search (fallback) is limited to 60 requests/hour without GITHUB_TOKEN.
 
             Args:
-                query: Service name or keyword (e.g., "storage", "compute", "bigquery")
-                limit: Maximum number of results to return (default 5)
+                query: Service name or keywords (e.g., "storage", "vertex ai", "gke audit", "bigquery")
+                limit: Maximum number of results (default 5)
 
             Returns:
-                JSON list of matching services with name, description, API endpoint, and docs URL
+                JSON with list of matching services including name, description, API endpoint, docs URL
+
+            Example: search_gcp_services("vertex ai") → Finds Vertex AI service with docs links
             """
             result = await self._search_services(query, limit=limit)
             return serialize_response_with_meta(result)
@@ -639,18 +651,31 @@ class GcpProvider(BaseProvider):
             service: str, max_bytes: int = 20480
         ) -> CallToolResult:
             """
-            Fetch detailed documentation for a specific GCP service.
+            Fetch actual documentation content for a GCP (Google Cloud Platform) service.
 
-            Retrieves documentation from docs.cloud.google.com, including overview,
-            quickstart guides, API references, and code examples. Content is extracted
-            and converted to Markdown format with smart section prioritization.
+            USE THIS WHEN: You need detailed documentation, guides, tutorials, or API reference for a GCP service.
+
+            BEST FOR: Getting complete documentation with setup instructions, usage examples, and API details.
+            Better than using curl or WebFetch because it:
+            - Automatically extracts relevant content from cloud.google.com
+            - Converts HTML to clean Markdown format
+            - Prioritizes important sections (Overview, Quickstart, API Reference)
+            - Removes navigation, ads, and other non-content elements
+            - Handles multi-word service names (e.g., "gke audit policy")
+
+            Works with:
+            - Exact service names (e.g., "Cloud Storage", "Compute Engine")
+            - Common abbreviations (e.g., "GCS", "GKE", "BigQuery")
+            - Multi-word queries (e.g., "gke audit policy configuration")
 
             Args:
-                service: Service name (e.g., "storage", "compute", "Cloud Storage")
-                max_bytes: Maximum content size in bytes (default ~20KB)
+                service: Service name or topic (e.g., "Cloud Storage", "vertex ai", "gke audit")
+                max_bytes: Maximum content size, default 20KB (increase for comprehensive docs)
 
             Returns:
-                JSON with documentation content, size, source, and metadata
+                JSON with documentation content, size, source URL, truncation status
+
+            Example: fetch_gcp_service_docs("vertex ai") → Returns formatted documentation from cloud.google.com
             """
             result = await self._fetch_service_docs(service, max_bytes)
             return serialize_response_with_meta(result)

@@ -38,7 +38,32 @@ class ZigProvider(BaseProvider):
         """Return MCP tool functions."""
 
         async def zig_docs(query: str) -> CallToolResult:
-            """Search Zig language documentation. Returns data in JSON format."""
+            """
+            Search Zig programming language documentation.
+
+            USE THIS WHEN: You need information about Zig language features, syntax, stdlib, or concepts.
+
+            BEST FOR: Learning Zig language specifics and finding relevant documentation sections.
+            Searches the official Zig documentation (ziglang.org/documentation/master/) and returns
+            matching sections with titles, summaries, and relevance scores.
+
+            Good for queries about:
+            - Language features (e.g., "comptime", "async", "optionals")
+            - Standard library (e.g., "ArrayList", "HashMap", "allocators")
+            - Memory management (e.g., "allocator", "defer", "errdefer")
+            - Error handling (e.g., "error sets", "try", "catch")
+            - Build system (e.g., "build.zig", "zig build")
+
+            NOT SUITABLE FOR: Third-party Zig packages (use GitHub provider for that)
+
+            Args:
+                query: Search keywords (e.g., "comptime", "async", "ArrayList", "error handling")
+
+            Returns:
+                JSON with matching documentation sections, relevance scores, and source URL
+
+            Example: zig_docs("comptime") → Returns sections about compile-time code execution
+            """
             result = await self._search_zig_docs(query)
             return serialize_response_with_meta(result)
 
