@@ -98,6 +98,8 @@ pip install .
     -   **TTL:** `export RTFD_CACHE_TTL=3600` (default: `604800` seconds / 1 week)
     -   **Location:** `~/.cache/rtfd/cache.db`
 
+- `VERIFIED_BY_PYPI`: Set to `true` to enable PyPI verification checks. When enabled, unverified projects will be blocked unless explicitly allowed. Defaults to `false`.
+
 ## Releases & Versioning
 
 For maintainers, see [CONTRIBUTING.md](CONTRIBUTING.md) for the automated release process.

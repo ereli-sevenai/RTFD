@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional
+import os
 
 import httpx
 from mcp.types import CallToolResult
@@ -27,7 +28,7 @@ class PyPIProvider(BaseProvider):
             tool_names=tool_names,
             supports_library_search=True,
             required_env_vars=[],
-            optional_env_vars=[],
+            optional_env_vars=["VERIFIED_BY_PYPI"],
         )
 
     async def search_library(self, library: str, limit: int = 5) -> ProviderResult:
@@ -42,8 +43,38 @@ class PyPIProvider(BaseProvider):
             error_msg = f"PyPI request failed: {exc}"
             return ProviderResult(success=False, error=error_msg, provider_name="pypi")
 
-    async def _fetch_metadata(self, package: str) -> Dict[str, Any]:
+    async def _check_verification(self, package: str) -> bool:
+        """
+        Check if a package is verified by PyPI.
+        
+        Fetches the project page and checks for the 'verified' class.
+        """
+        url = f"https://pypi.org/project/{package}/"
+        try:
+            async with await self._http_client() as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                # Simple check for the verified class in the HTML
+                return 'class="sidebar-section verified"' in resp.text
+        except Exception:
+            # If we can't check, assume unverified or fail safe? 
+            # Let's assume unverified to be safe if verification is required.
+            return False
+
+    async def _fetch_metadata(
+        self, package: str, ignore_verification: bool = False
+    ) -> Dict[str, Any]:
         """Pull package metadata from the PyPI JSON API."""
+        # Check verification if enabled
+        if os.getenv("VERIFIED_BY_PYPI", "").lower() == "true" and not ignore_verification:
+            is_verified = await self._check_verification(package)
+            if not is_verified:
+                return {
+                    "name": package,
+                    "error": f"Project '{package}' is not verified by PyPI. Please ask the user if they want to trust this project.",
+                    "is_unverified": True
+                }
+
         url = f"https://pypi.org/pypi/{package}/json"
         async with await self._http_client() as client:
             resp = await client.get(url)
@@ -77,7 +108,7 @@ class PyPIProvider(BaseProvider):
         return None
 
     async def _fetch_pypi_docs(
-        self, package: str, max_bytes: int = 20480
+        self, package: str, max_bytes: int = 20480, ignore_verification: bool = False
     ) -> Dict[str, Any]:
         """
         Fetch documentation content for PyPI package.
@@ -85,13 +116,24 @@ class PyPIProvider(BaseProvider):
         Args:
             package: Package name
             max_bytes: Maximum content size in bytes
+            ignore_verification: Whether to ignore PyPI verification status
 
         Returns:
             Dict with content, size, source, etc.
         """
         try:
             # 1. Get metadata to find description and project URLs
-            metadata = await self._fetch_metadata(package)
+            # This will also perform the verification check
+            metadata = await self._fetch_metadata(package, ignore_verification)
+            
+            if metadata.get("error"):
+                return {
+                    "package": package,
+                    "content": "",
+                    "error": metadata["error"],
+                    "size_bytes": 0,
+                    "source": None,
+                }
 
             # 2. Try PyPI description (often reStructuredText)
             content = metadata.get("description", "")
@@ -108,7 +150,8 @@ class PyPIProvider(BaseProvider):
                 if repo_url:
                     # For now, note that GitHub fallback requires github provider
                     # This will be implemented after GitHub provider is updated
-                    source = "pypi_minimal"
+                    # source = "pypi_minimal"
+                    pass
 
             # 5. Extract and prioritize sections
             sections = extract_sections(content)
@@ -145,12 +188,22 @@ class PyPIProvider(BaseProvider):
     def get_tools(self) -> Dict[str, Callable]:
         """Return MCP tool functions."""
 
-        async def pypi_metadata(package: str) -> CallToolResult:
-            """Retrieve PyPI package metadata including documentation URLs when available."""
-            result = await self._fetch_metadata(package)
+        async def pypi_metadata(
+            package: str, ignore_verification: bool = False
+        ) -> CallToolResult:
+            """
+            Retrieve PyPI package metadata including documentation URLs when available.
+            
+            Args:
+                package: PyPI package name
+                ignore_verification: If true, skip PyPI verification check (only relevant if VERIFIED_BY_PYPI is set)
+            """
+            result = await self._fetch_metadata(package, ignore_verification)
             return serialize_response_with_meta(result)
 
-        async def fetch_pypi_docs(package: str, max_bytes: int = 20480) -> CallToolResult:
+        async def fetch_pypi_docs(
+            package: str, max_bytes: int = 20480, ignore_verification: bool = False
+        ) -> CallToolResult:
             """
             Fetch Python package documentation content from PyPI.
 
@@ -160,11 +213,12 @@ class PyPIProvider(BaseProvider):
             Args:
                 package: PyPI package name
                 max_bytes: Maximum content size (default ~20KB)
+                ignore_verification: If true, skip PyPI verification check (only relevant if VERIFIED_BY_PYPI is set)
 
             Returns:
                 JSON with content, size, source info
             """
-            result = await self._fetch_pypi_docs(package, max_bytes)
+            result = await self._fetch_pypi_docs(package, max_bytes, ignore_verification)
             return serialize_response_with_meta(result)
 
         tools = {"pypi_metadata": pypi_metadata}

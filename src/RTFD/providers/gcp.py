@@ -308,8 +308,20 @@ class GcpProvider(BaseProvider):
         if results:
             return results[:limit]
 
-        # Otherwise, try GitHub API search for googleapis repository
-        # This helps discover services not in our predefined list
+        # Try searching cloud.google.com directly
+        # This is often better for general queries than GitHub search
+        try:
+            cloud_results = await self._search_cloud_google_com(query, limit)
+            if cloud_results:
+                results.extend(cloud_results)
+        except Exception:
+            pass
+            
+        if len(results) >= limit:
+            return results[:limit]
+
+        # Finally, try GitHub API search for googleapis repository
+        # This helps discover services not in our predefined list but defined in protos
         try:
             github_results = await self._search_github_googleapis(query, limit)
             results.extend(github_results)
@@ -396,6 +408,73 @@ class GcpProvider(BaseProvider):
         if token:
             headers["Authorization"] = f"token {token}"
         return headers
+
+    async def _search_cloud_google_com(
+        self, query: str, limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Search cloud.google.com for documentation.
+        
+        Args:
+            query: Search query
+            limit: Maximum results
+            
+        Returns:
+            List of service metadata from search results
+        """
+        url = f"https://cloud.google.com/search?q={query}"
+        headers = {"User-Agent": USER_AGENT}
+        
+        try:
+            async with await self._http_client() as client:
+                resp = await client.get(url, headers=headers, follow_redirects=True)
+                resp.raise_for_status()
+                soup = BeautifulSoup(resp.text, "html.parser")
+                
+            results: List[Dict[str, Any]] = []
+            
+            # Use the robust selector strategy found during testing
+            search_links = soup.find_all("a", attrs={"track-type": "search-result"})
+            
+            for link in search_links:
+                title = link.get_text().strip()
+                href = link.get("href")
+                
+                if not href or not title:
+                    continue
+                    
+                # Ensure absolute URL
+                if href.startswith("/"):
+                    href = f"https://cloud.google.com{href}"
+                
+                # Try to extract description
+                description = f"Search result for {query}"
+                try:
+                    container = link.parent.parent
+                    full_text = container.get_text(" ", strip=True)
+                    # Simple heuristic to get description part
+                    desc_text = full_text.replace(title, "", 1).strip()
+                    if desc_text:
+                        description = desc_text[:200] + "..." if len(desc_text) > 200 else desc_text
+                except Exception:
+                    pass
+                
+                results.append({
+                    "name": title,
+                    "description": description,
+                    "api": "", # No API info from search
+                    "docs_url": href,
+                    "source": "cloud_google_com"
+                })
+                
+                if len(results) >= limit:
+                    break
+                    
+            return results
+            
+        except Exception as exc:
+            # Log error or just return empty? For now return empty to be safe
+            return []
 
     async def _fetch_service_docs(
         self, service: str, max_bytes: int = 20480
