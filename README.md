@@ -194,7 +194,7 @@ To add a custom provider, create a new file in the providers directory inheritin
 ## Provider-Specific Notes
 
 ### GCP (Google Cloud Platform)
-*   **Service Discovery:** Uses both a local service mapping (20+ common services) and GitHub API search of the googleapis/googleapis repository.
+*   **Service Discovery:** Uses a local service mapping (20+ common services), direct search on `cloud.google.com` (for general queries), and GitHub API search of the googleapis/googleapis repository.
 *   **Documentation Source:** Fetches documentation by scraping docs.cloud.google.com and converting to Markdown.
 *   **GitHub Token:** Optional but recommended. Without a `GITHUB_TOKEN`, GitHub API search is limited to 60 requests/hour. With a token, the limit increases to 5,000 requests/hour.
 *   **Supported Services:** Cloud Storage, Compute Engine, BigQuery, Cloud Functions, Cloud Run, Pub/Sub, Firestore, GKE, App Engine, Cloud Vision, Cloud Speech, IAM, Secret Manager, and more.
