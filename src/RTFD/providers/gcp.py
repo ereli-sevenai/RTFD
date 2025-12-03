@@ -304,16 +304,26 @@ class GcpProvider(BaseProvider):
             if len(results) >= limit:
                 break
 
-        # If we have results from local mapping, return them
-        if results:
-            return results[:limit]
+        # If we have an EXACT local match, that's usually the best result
+        if normalized and normalized in GCP_SERVICE_DOCS:
+             return results[:limit]
 
+        # For partial/contextual matches, we want to check cloud.google.com search first
+        # because it might have a more specific result (e.g. "gke autopilot" vs "gke")
+        
         # Try searching cloud.google.com directly
-        # This is often better for general queries than GitHub search
         try:
             cloud_results = await self._search_cloud_google_com(query, limit)
             if cloud_results:
-                results.extend(cloud_results)
+                # If we have cloud results, insert them BEFORE the contextual local matches
+                # But keep exact matches (if any) at the top (handled above)
+                
+                # Filter out cloud results that are duplicates of what we already have
+                existing_urls = {r["docs_url"] for r in results}
+                new_cloud_results = [r for r in cloud_results if r["docs_url"] not in existing_urls]
+                
+                # Prepend cloud results to the existing (contextual) results
+                results = new_cloud_results + results
         except Exception:
             pass
             
@@ -321,12 +331,10 @@ class GcpProvider(BaseProvider):
             return results[:limit]
 
         # Finally, try GitHub API search for googleapis repository
-        # This helps discover services not in our predefined list but defined in protos
         try:
             github_results = await self._search_github_googleapis(query, limit)
             results.extend(github_results)
         except Exception:
-            # If GitHub search fails, just return empty or partial results
             pass
 
         return results[:limit]
