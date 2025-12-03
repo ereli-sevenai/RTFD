@@ -86,14 +86,17 @@ uv pip install rtfd-mcp
 #### Claude Code
 Run the following command to automatically add RTFD to your configuration:
 ```bash
-claude mcp add rtfd -- command="rtfd"
+claude mcp add rtfd -- command="rtfd" --env GITHUB_TOKEN=your_token_here
 ```
 Or manually edit `~/.claude.json`:
 ```json
 {
   "mcpServers": {
     "rtfd": {
-      "command": "rtfd"
+      "command": "rtfd",
+      "env": {
+        "GITHUB_TOKEN": "your_token_here"
+      }
     }
   }
 }
@@ -105,13 +108,17 @@ Or manually edit `~/.claude.json`:
 3. Name: `rtfd`
 4. Type: `stdio`
 5. Command: `rtfd`
+6. Add Environment Variable: `GITHUB_TOKEN` = `your_token_here`
 
 Or manually edit `~/.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
     "rtfd": {
-      "command": "rtfd"
+      "command": "rtfd",
+      "env": {
+        "GITHUB_TOKEN": "your_token_here"
+      }
     }
   }
 }
@@ -124,7 +131,10 @@ Or manually edit `~/.cursor/mcp.json`:
 {
   "mcpServers": {
     "rtfd": {
-      "command": "rtfd"
+      "command": "rtfd",
+      "env": {
+        "GITHUB_TOKEN": "your_token_here"
+      }
     }
   }
 }
@@ -136,7 +146,10 @@ Edit `~/.gemini/settings.json`:
 {
   "mcpServers": {
     "rtfd": {
-      "command": "rtfd"
+      "command": "rtfd",
+      "env": {
+        "GITHUB_TOKEN": "your_token_here"
+      }
     }
   }
 }
@@ -147,6 +160,8 @@ Edit `~/.codex/config.toml`:
 ```toml
 [mcpServers.rtfd]
 command = "rtfd"
+[mcpServers.rtfd.env]
+GITHUB_TOKEN = "your_token_here"
 ```
 
 ### 3. Verify
