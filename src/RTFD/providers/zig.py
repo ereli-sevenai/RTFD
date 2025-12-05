@@ -141,9 +141,7 @@ class ZigProvider(BaseProvider):
 
         return sections
 
-    def _search_sections(
-        self, sections: list[Dict[str, str]], query: str
-    ) -> list[Dict[str, Any]]:
+    def _search_sections(self, sections: list[Dict[str, str]], query: str) -> list[Dict[str, Any]]:
         """Search sections for matches based on query string."""
         matches = []
         query_words = query.lower().split()

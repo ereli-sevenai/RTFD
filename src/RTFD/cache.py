@@ -17,6 +17,7 @@ import sys
 @dataclass
 class CacheEntry:
     """Represents a cached item."""
+
     key: str
     data: Any
     timestamp: float
@@ -86,7 +87,7 @@ class CacheManager:
                     )
         except Exception as e:
             sys.stderr.write(f"Cache read error: {e}\n")
-        
+
         return None
 
     def set(self, key: str, data: Any, metadata: Optional[Dict[str, Any]] = None) -> None:
@@ -143,9 +144,7 @@ class CacheManager:
         cutoff = time.time() - ttl
         try:
             with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    "DELETE FROM cache WHERE timestamp < ?", (cutoff,)
-                )
+                cursor = conn.execute("DELETE FROM cache WHERE timestamp < ?", (cutoff,))
                 conn.commit()
                 return cursor.rowcount
         except Exception as e:
@@ -225,31 +224,37 @@ class CacheManager:
         if isinstance(data, dict):
             if "library" in data:
                 library = data.get("library", "")
-                
+
                 # Try to find a description in provider results
                 description = ""
-                
+
                 # Check PyPI
                 if "pypi" in data and isinstance(data["pypi"], dict):
-                    description = data["pypi"].get("summary") or data["pypi"].get("description") or ""
-                
+                    description = (
+                        data["pypi"].get("summary") or data["pypi"].get("description") or ""
+                    )
+
                 # Check NPM
                 if not description and "npm" in data and isinstance(data["npm"], dict):
                     description = data["npm"].get("summary") or data["npm"].get("description") or ""
-                    
+
                 # Check Crates
                 if not description and "crates" in data and isinstance(data["crates"], dict):
-                     description = data["crates"].get("description") or ""
+                    description = data["crates"].get("description") or ""
 
                 # Check GoDocs
                 if not description and "godocs" in data and isinstance(data["godocs"], dict):
                     description = data["godocs"].get("synopsis") or ""
 
                 # Check GitHub
-                if not description and "github_repos" in data and isinstance(data["github_repos"], list):
+                if (
+                    not description
+                    and "github_repos" in data
+                    and isinstance(data["github_repos"], list)
+                ):
                     if len(data["github_repos"]) > 0:
-                         description = data["github_repos"][0].get("description") or ""
-                
+                        description = data["github_repos"][0].get("description") or ""
+
                 if description:
                     if len(description) > 100:
                         description = description[:100] + "..."

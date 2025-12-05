@@ -91,10 +91,10 @@ async def _locate_library_docs(library: str, limit: int = 5) -> Dict[str, Any]:
     # Check cache first
     cache_enabled, cache_ttl = get_cache_config()
     cache_key = f"search:{library}:{limit}"
-    
+
     if cache_enabled:
         # Cleanup expired entries occasionally (could be optimized)
-        # For now, we rely on lazy cleanup or external process, 
+        # For now, we rely on lazy cleanup or external process,
         # but let's do a quick check on read if we wanted strict TTL.
         # The CacheManager.get() returns None if not found.
         # We can also run cleanup on startup or periodically.

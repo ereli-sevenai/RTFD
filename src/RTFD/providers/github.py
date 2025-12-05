@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import os
 from typing import Any, Callable, Dict, List, Optional
 
 import httpx
@@ -20,13 +19,15 @@ class GitHubProvider(BaseProvider):
     def get_metadata(self) -> ProviderMetadata:
         tool_names = ["github_repo_search", "github_code_search"]
         if is_fetch_enabled():
-            tool_names.extend([
-                "fetch_github_readme",
-                "list_repo_contents",
-                "get_file_content",
-                "get_repo_tree",
-                "get_commit_diff"
-            ])
+            tool_names.extend(
+                [
+                    "fetch_github_readme",
+                    "list_repo_contents",
+                    "get_file_content",
+                    "get_repo_tree",
+                    "get_commit_diff",
+                ]
+            )
 
         return ProviderMetadata(
             name="github",
@@ -127,7 +128,7 @@ class GitHubProvider(BaseProvider):
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
-        token = os.getenv("GITHUB_TOKEN")
+        token = get_github_token()
         if token:
             headers["Authorization"] = f"token {token}"
         return headers
@@ -160,7 +161,7 @@ class GitHubProvider(BaseProvider):
 
             # Convert relative URLs to absolute
             # Use the blob URL for the specific branch/path
-            readme_name = data.get("name", "README.md")
+            data.get("name", "README.md")
             readme_path = data.get("path", "")
             default_branch = "main"  # Could be fetched from repo metadata if needed
 
@@ -213,9 +214,7 @@ class GitHubProvider(BaseProvider):
                 "source": None,
             }
 
-    async def _list_repo_contents(
-        self, owner: str, repo: str, path: str = ""
-    ) -> Dict[str, Any]:
+    async def _list_repo_contents(self, owner: str, repo: str, path: str = "") -> Dict[str, Any]:
         """
         List contents of a directory in a GitHub repository.
 
@@ -245,15 +244,17 @@ class GitHubProvider(BaseProvider):
 
             contents = []
             for item in items:
-                contents.append({
-                    "name": item.get("name"),
-                    "path": item.get("path"),
-                    "type": item.get("type"),  # "file" or "dir"
-                    "size": item.get("size"),
-                    "sha": item.get("sha"),
-                    "url": item.get("html_url"),
-                    "download_url": item.get("download_url"),
-                })
+                contents.append(
+                    {
+                        "name": item.get("name"),
+                        "path": item.get("path"),
+                        "type": item.get("type"),  # "file" or "dir"
+                        "size": item.get("size"),
+                        "sha": item.get("sha"),
+                        "url": item.get("html_url"),
+                        "download_url": item.get("download_url"),
+                    }
+                )
 
             return {
                 "repository": f"{owner}/{repo}",
@@ -401,13 +402,15 @@ class GitHubProvider(BaseProvider):
 
             tree = []
             for item in tree_items:
-                tree.append({
-                    "path": item.get("path"),
-                    "type": item.get("type"),  # "blob" (file) or "tree" (dir)
-                    "size": item.get("size"),
-                    "sha": item.get("sha"),
-                    "url": item.get("url"),
-                })
+                tree.append(
+                    {
+                        "path": item.get("path"),
+                        "type": item.get("type"),  # "blob" (file) or "tree" (dir)
+                        "size": item.get("size"),
+                        "sha": item.get("sha"),
+                        "url": item.get("url"),
+                    }
+                )
 
             return {
                 "repository": f"{owner}/{repo}",
@@ -430,9 +433,7 @@ class GitHubProvider(BaseProvider):
                 "error": f"Failed to get repository tree: {str(exc)}",
             }
 
-    async def _get_commit_diff(
-        self, owner: str, repo: str, base: str, head: str
-    ) -> Dict[str, Any]:
+    async def _get_commit_diff(self, owner: str, repo: str, base: str, head: str) -> Dict[str, Any]:
         """
         Get the diff between two commits.
 
@@ -609,9 +610,7 @@ class GitHubProvider(BaseProvider):
             result = await self._list_repo_contents(owner, repo_name, path)
             return serialize_response_with_meta(result)
 
-        async def get_file_content(
-            repo: str, path: str, max_bytes: int = 102400
-        ) -> CallToolResult:
+        async def get_file_content(repo: str, path: str, max_bytes: int = 102400) -> CallToolResult:
             """
             Get content of a specific file from a GitHub repository.
 

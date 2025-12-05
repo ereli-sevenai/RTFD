@@ -83,7 +83,7 @@ class GoDocsProvider(BaseProvider):
                     if sibling.name == "p":
                         text = sibling.get_text(strip=True)
                         # Skip the import statement
-                        if text.startswith("import \""):
+                        if text.startswith('import "'):
                             continue
                         description = text
                         break
@@ -95,9 +95,7 @@ class GoDocsProvider(BaseProvider):
             "source_url": f"https://pkg.go.dev/{package}",  # godocs often mirrors standard paths
         }
 
-    async def _fetch_godocs_docs(
-        self, package: str, max_bytes: int = 20480
-    ) -> Dict[str, Any]:
+    async def _fetch_godocs_docs(self, package: str, max_bytes: int = 20480) -> Dict[str, Any]:
         """
         Fetch full documentation content for a Go package from godocs.io.
 
@@ -132,7 +130,7 @@ class GoDocsProvider(BaseProvider):
                         break
                     if sibling.name in ("p", "pre"):
                         text = sibling.get_text(strip=True)
-                        if text and not text.startswith("import \""):
+                        if text and not text.startswith('import "'):
                             content_parts.append(text)
 
             # 2. Get function/type documentation (first few entries)
@@ -225,9 +223,7 @@ class GoDocsProvider(BaseProvider):
             result = await self._fetch_metadata(package)
             return serialize_response_with_meta(result)
 
-        async def fetch_godocs_docs(
-            package: str, max_bytes: int = 20480
-        ) -> CallToolResult:
+        async def fetch_godocs_docs(package: str, max_bytes: int = 20480) -> CallToolResult:
             """
             Fetch actual Go package documentation from godocs.io.
 

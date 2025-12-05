@@ -46,7 +46,9 @@ async def test_npm_search_library_express(provider):
 @pytest.mark.asyncio
 async def test_npm_search_library_nonexistent(provider):
     """Test searching for a nonexistent npm package."""
-    result = await provider.search_library("this-npm-package-definitely-does-not-exist-99999", limit=1)
+    result = await provider.search_library(
+        "this-npm-package-definitely-does-not-exist-99999", limit=1
+    )
 
     # npm returns 404 for nonexistent packages
     assert result.success is False

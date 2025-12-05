@@ -96,9 +96,7 @@ class NpmProvider(BaseProvider):
             "readme": payload.get("readme", ""),  # Include README for fetch_npm_docs
         }
 
-    async def _fetch_npm_docs(
-        self, package: str, max_bytes: int = 20480
-    ) -> Dict[str, Any]:
+    async def _fetch_npm_docs(self, package: str, max_bytes: int = 20480) -> Dict[str, Any]:
         """
         Fetch documentation content for npm package.
 
@@ -123,7 +121,9 @@ class NpmProvider(BaseProvider):
             # If no README or very short, note it
             source = "npm"
             if not content or len(content.strip()) < 100:
-                content = f"# {package}\n\n{data.get('description', 'No description available.')}\n\n"
+                content = (
+                    f"# {package}\n\n{data.get('description', 'No description available.')}\n\n"
+                )
                 source = "npm_minimal"
 
             # Extract and prioritize sections

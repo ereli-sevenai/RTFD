@@ -46,7 +46,7 @@ class PyPIProvider(BaseProvider):
     async def _check_verification(self, package: str) -> bool:
         """
         Check if a package is verified by PyPI.
-        
+
         Fetches the project page and checks for the 'verified' class.
         """
         url = f"https://pypi.org/project/{package}/"
@@ -57,7 +57,7 @@ class PyPIProvider(BaseProvider):
                 # Simple check for the verified class in the HTML
                 return 'class="sidebar-section verified"' in resp.text
         except Exception:
-            # If we can't check, assume unverified or fail safe? 
+            # If we can't check, assume unverified or fail safe?
             # Let's assume unverified to be safe if verification is required.
             return False
 
@@ -72,7 +72,7 @@ class PyPIProvider(BaseProvider):
                 return {
                     "name": package,
                     "error": f"Project '{package}' is not verified by PyPI. Please ask the user if they want to trust this project.",
-                    "is_unverified": True
+                    "is_unverified": True,
                 }
 
         url = f"https://pypi.org/pypi/{package}/json"
@@ -125,7 +125,7 @@ class PyPIProvider(BaseProvider):
             # 1. Get metadata to find description and project URLs
             # This will also perform the verification check
             metadata = await self._fetch_metadata(package, ignore_verification)
-            
+
             if metadata.get("error"):
                 return {
                     "package": package,
@@ -188,9 +188,7 @@ class PyPIProvider(BaseProvider):
     def get_tools(self) -> Dict[str, Callable]:
         """Return MCP tool functions."""
 
-        async def pypi_metadata(
-            package: str, ignore_verification: bool = False
-        ) -> CallToolResult:
+        async def pypi_metadata(package: str, ignore_verification: bool = False) -> CallToolResult:
             """
             Get Python package metadata from PyPI (name, version, URLs, summary).
 

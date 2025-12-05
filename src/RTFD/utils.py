@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 import json
 import os
+import subprocess
+import shutil
 from mcp.types import CallToolResult, TextContent
 from .token_counter import count_tokens
+from loguru import logger
 
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -74,15 +77,13 @@ def serialize_response_with_meta(data: Any) -> CallToolResult:
 
     # If token tracking is disabled, just serialize to JSON
     if not track_tokens:
-        return CallToolResult(
-            content=[TextContent(type="text", text=response_text)]
-        )
+        return CallToolResult(content=[TextContent(type="text", text=response_text)])
 
     # Token tracking enabled
     try:
         # Calculate token statistics
         token_count = count_tokens(response_text)
-        
+
         token_stats = {
             "tokens_json": token_count,
             "tokens_sent": token_count,
@@ -93,13 +94,13 @@ def serialize_response_with_meta(data: Any) -> CallToolResult:
         # Return CallToolResult with content and metadata
         return CallToolResult(
             content=[TextContent(type="text", text=response_text)],
-            _meta={"token_stats": token_stats}
+            _meta={"token_stats": token_stats},
         )
     except Exception as e:
         # Fallback: still return response, but with error in metadata
         return CallToolResult(
             content=[TextContent(type="text", text=response_text)],
-            _meta={"token_stats": {"error": f"Token counting failed: {str(e)}"}}
+            _meta={"token_stats": {"error": f"Token counting failed: {str(e)}"}},
         )
 
 
@@ -116,3 +117,33 @@ def get_cache_config() -> tuple[bool, float]:
     except ValueError:
         ttl = 604800.0
     return enabled, ttl
+
+
+def get_github_token() -> Optional[str]:
+    """
+    Get GitHub token from environment or gh CLI.
+
+    First checks for GITHUB_TOKEN environment variable.
+    If not found, tries to get token from gh CLI if it's installed.
+
+    Returns:
+        GitHub token as string or None if not available
+    """
+    # First check environment variable
+    token = os.getenv("GITHUB_TOKEN")
+    if token:
+        return token
+
+    # If no env var, try gh CLI
+    if shutil.which("gh"):
+        try:
+            result = subprocess.run(
+                ["gh", "auth", "token"], capture_output=True, text=True, check=False
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except Exception:
+            # If gh command fails for any reason, return None
+            pass
+    logger.error("GitHub token not found")
+    return None

@@ -51,7 +51,16 @@ def test_get_provider_metadata_all():
     assert len(metadata_list) == 8
 
     metadata_names = {m.name for m in metadata_list}
-    assert metadata_names == {"pypi", "godocs", "github", "npm", "crates", "zig", "dockerhub", "gcp"}
+    assert metadata_names == {
+        "pypi",
+        "godocs",
+        "github",
+        "npm",
+        "crates",
+        "zig",
+        "dockerhub",
+        "gcp",
+    }
 
 
 def test_discovery_caches_results():

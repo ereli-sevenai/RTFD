@@ -73,9 +73,7 @@ class CratesProvider(BaseProvider):
 
         await asyncio.sleep(seconds)
 
-    async def _search_crates(
-        self, query: str, per_page: int = 5
-    ) -> Dict[str, Any]:
+    async def _search_crates(self, query: str, per_page: int = 5) -> Dict[str, Any]:
         """Search for crates by name/keyword."""
         await self._rate_limit()
 

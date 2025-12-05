@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 from io import StringIO
 
 from markdownify import markdownify as md
@@ -93,7 +93,7 @@ def convert_rst_to_markdown(rst: str) -> str:
 
         return markdown
 
-    except Exception as e:
+    except Exception:
         # If conversion fails, return original content
         # This is better than losing all content
         return rst
@@ -195,9 +195,7 @@ def score_section(title: str) -> int:
     return 30  # Default score
 
 
-def prioritize_sections(
-    sections: List[Section], max_bytes: int = 20480
-) -> str:
+def prioritize_sections(sections: List[Section], max_bytes: int = 20480) -> str:
     """
     Select and combine sections by priority within size limit.
 
