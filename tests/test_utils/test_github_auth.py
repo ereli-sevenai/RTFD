@@ -1,13 +1,9 @@
 """Tests for GitHub authentication methods in utils.py."""
 
 import os
-import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
-# Add src to path for imports
-sys.path.insert(0, "src")
 
 from src.RTFD.utils import get_github_token
 
@@ -68,8 +64,10 @@ def test_get_github_token_cli_method():
     mock_result.returncode = 0
     mock_result.stdout = "cli_test_token\n"
 
-    with patch("src.RTFD.utils.shutil.which", return_value=True), \
-         patch("src.RTFD.utils.subprocess.run", return_value=mock_result):
+    with (
+        patch("src.RTFD.utils.shutil.which", return_value=True),
+        patch("src.RTFD.utils.subprocess.run", return_value=mock_result),
+    ):
         assert get_github_token() == "cli_test_token"
 
 
@@ -77,8 +75,10 @@ def test_get_github_token_cli_method_no_gh():
     """Test get_github_token with cli method but gh CLI not available."""
     os.environ["GITHUB_AUTH"] = "cli"
 
-    with patch("src.RTFD.utils.shutil.which", return_value=None), \
-         patch("src.RTFD.utils.logger.error") as mock_logger:
+    with (
+        patch("src.RTFD.utils.shutil.which", return_value=None),
+        patch("src.RTFD.utils.logger.error") as mock_logger,
+    ):
         assert get_github_token() is None
         mock_logger.assert_called_once()
 
@@ -92,9 +92,11 @@ def test_get_github_token_cli_method_gh_error():
     mock_result.returncode = 1
     mock_result.stdout = ""
 
-    with patch("src.RTFD.utils.shutil.which", return_value=True), \
-         patch("src.RTFD.utils.subprocess.run", return_value=mock_result), \
-         patch("src.RTFD.utils.logger.error") as mock_logger:
+    with (
+        patch("src.RTFD.utils.shutil.which", return_value=True),
+        patch("src.RTFD.utils.subprocess.run", return_value=mock_result),
+        patch("src.RTFD.utils.logger.error") as mock_logger,
+    ):
         assert get_github_token() is None
         mock_logger.assert_called_once()
 
@@ -115,8 +117,10 @@ def test_get_github_token_auto_method_fallback_to_cli():
     mock_result.returncode = 0
     mock_result.stdout = "fallback_test_token\n"
 
-    with patch("src.RTFD.utils.shutil.which", return_value=True), \
-         patch("src.RTFD.utils.subprocess.run", return_value=mock_result):
+    with (
+        patch("src.RTFD.utils.shutil.which", return_value=True),
+        patch("src.RTFD.utils.subprocess.run", return_value=mock_result),
+    ):
         assert get_github_token() == "fallback_test_token"
 
 
@@ -124,7 +128,9 @@ def test_get_github_token_auto_method_no_token_no_cli():
     """Test get_github_token with auto method but no token and no CLI available."""
     os.environ["GITHUB_AUTH"] = "auto"
 
-    with patch("src.RTFD.utils.shutil.which", return_value=None), \
-         patch("src.RTFD.utils.logger.error") as mock_logger:
+    with (
+        patch("src.RTFD.utils.shutil.which", return_value=None),
+        patch("src.RTFD.utils.logger.error") as mock_logger,
+    ):
         assert get_github_token() is None
         mock_logger.assert_called_once()
